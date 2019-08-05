@@ -1,6 +1,9 @@
 import pickle
 import os
 import csv
+import json
+import subprocess
+
 
 proto = pickle.HIGHEST_PROTOCOL
 
@@ -134,4 +137,28 @@ def e_vect(n, i):
     zeros[i] = 1
     return zeros
 
-        
+def dict2json(dict_, fname):
+    with open(fname, 'w') as fp:
+        json.dump(dict_, fp)
+
+
+def shell(command, printOut=True):
+    """
+    Run shell commands in Linux, decide if printing or not the output in console
+
+    Parameters
+    ----------
+    command: text command
+    printOut: decide if print output or not
+
+    Returns
+    -------
+    None
+
+    """   
+    if printOut == False:   
+        proc = subprocess.Popen(command, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        proc.wait(timeout=None)
+    else:
+        proc = subprocess.Popen(command, shell=True)
+        proc.wait(timeout=None)

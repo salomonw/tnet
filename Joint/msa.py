@@ -31,8 +31,8 @@ import itertools
 import collections
 import ast
 from scipy.sparse import coo_matrix
-from joblib import Parallel, delayed
-import multiprocessing
+#from joblib import Parallel, delayed
+from multiprocessing import Pool
 from utils import * 
 
 class TrafficAssignment(object):
@@ -87,7 +87,7 @@ class TrafficAssignment(object):
     .. [1] Juan de Dios Ortuzar and Luis G. Willumsen (2011) Modelling Transport, Fourth Edition. John Wiley and Sons.
     """
 
-    def __init__(self, graph, od_graph, od_matrix=None, paths=False, fcoeffs=[1,0,0,0,0.15,0], threshold=1e-5, iterations=1000):
+    def __init__(self, graph, od_graph, od_matrix=None, paths=False, fcoeffs=[1,0,0,0,0.15,0], threshold=1e-5, iterations=350):
 
         self.graph = graph
         self.od_graph = od_graph
@@ -433,8 +433,10 @@ def get_dxdb(TAP, delta=0.05, divide=1, num_cores = False):
     for i in range(nPoly):  
         e = e_vect(nPoly, i)
         fcoeffs_i.append( [TAP.fcoeffs[coeff] + delta*e[coeff] for coeff in range(nPoly)] ) 
-    dxdb = Parallel(n_jobs=num_cores)(delayed(get_dxdb_sing)(TAP, i) for i in fcoeffs_i)
-
+    #dxdb = Parallel(n_jobs=num_cores)(delayed(get_dxdb_sing)(TAP, i) for i in fcoeffs_i)
+    pool = Pool(num_cores)
+    dxdb = [pool.apply(get_dxdb_sing, (TAP, i)) for i in fcoeffs_i]
+    pool.close()
     return dxdb
 
 

@@ -7,7 +7,6 @@ from scipy.sparse import lil_matrix
 from scipy.special import comb
 from scipy.linalg import block_diag
 
-
 class tNet():
 	def __init__(self, netFile=None, gFile=None, G=None, g=None, fcoeffs=[1,0,0,0,0.15,0]):
 		"""
@@ -58,7 +57,7 @@ class tNet():
 	def build_TAP(self):
 		"""
 	    Build a traffic assignment object based on the traffic network 
-	    Jürgen Hackl <hackl@ibi.baug.ethz.ch>
+	    Jurgen Hackl <hackl@ibi.baug.ethz.ch>
 
 	    Parameters
 	    ----------
@@ -74,14 +73,14 @@ class tNet():
 		assert (self.totalDemand>0), "Total demand is zero!!"
 		assert (self.nNodes>0), "No nodes in graph!!"
 		assert (self.nLinks>0), "No links in graph!!"
-		TAP = msa.TrafficAssignment(self.G, self.gGraph, fcoeffs=self.fcoeffs, iterations=1000)
+		TAP = msa.TrafficAssignment(self.G, self.gGraph, fcoeffs=self.fcoeffs, iterations=350)
 		return TAP
 		
 
 	def solveMSA(self):
 		"""
 	    Solve the MSA flows for a traffic network using the MSA module by 
-	    Jürgen Hackl <hackl@ibi.baug.ethz.ch>
+	    Jurgen Hackl <hackl@ibi.baug.ethz.ch>
 
 	    Parameters
 	    ----------
@@ -112,9 +111,9 @@ class tNet():
 
 	    """
 		fcoeffs_orig = self.fcoeffs.copy()
-		TAP = msa.TrafficAssignment(self.G, self.gGraph, fcoeffs=self.fcoeffs, iterations=1000)
+		TAP = msa.TrafficAssignment(self.G, self.gGraph, fcoeffs=self.fcoeffs, iterations=350)
 		dxdb = msa.get_dxdb(TAP, delta=delta, divide=divide, num_cores=8)
-		TAP = msa.TrafficAssignment(self.G, self.gGraph, fcoeffs=fcoeffs_orig, iterations=1000)
+		TAP = msa.TrafficAssignment(self.G, self.gGraph, fcoeffs=fcoeffs_orig, iterations=350)
 		return dxdb
 
 	def set_fcoeffs(self, fcoeff):
@@ -173,6 +172,72 @@ class tNet():
 		g, fc = jointBilevel(self.G, self.g, self.fcoeffs, self.incidence_matrix, self.link_id_dict,\
 	    		 G_data, dxdb, dxdg, g_tr = g_tr, beta_tr = beta_tr, scaling=scaling, c=c, lambda_1=lambda_1)
 		return g, fc
+
+
+	def solve_jointBilevel_julia(self, G_data, dxdb, dxdg, g_tr = 45, beta_tr = 0.002, scaling=0, c=10, lambda_1=300):
+		"""
+	    solve joint bilevel problem using the information of the network
+
+	    Parameters
+	    ----------
+
+		self: a tNet object
+
+	    Returns
+	    -------
+	    the resulting OD demand estimate (g) and the polynomial cost coefficients (beta)
+
+	    """	
+	    # DATA TO JULIA
+		A, B, C, h, sort_ld, sort_od = get_jointBilevel_canonical(self.G, self.g, self.fcoeffs, self.incidence_matrix, self.link_id_dict, G_data)
+		K = 1
+		nPoly = len(self.fcoeffs)
+		
+		ld = self.link_id_dict
+		flow_k = np.transpose(np.array([self.G.get_edge_data(ld[idx][0],ld[idx][1])['flow'] for idx in sort_ld]))
+		data = np.transpose(np.array([G_data.get_edge_data(ld[idx][0],ld[idx][1])['flow'] for idx in sort_ld]))
+
+		dxdg_k = []
+		dxdb_k = []
+		for i in sort_ld:
+			dxdg_k.append(np.array([dxdg[w, ld[i]] for w in sort_od]))
+			dxdb_k.append(np.array([dxdb[j][ld[i]] for j in range(nPoly)]))
+		g_k = np.array([self.g[od] for od in sort_od])
+		beta_k = np.array(self.fcoeffs)
+
+		nNodes = len(self.G.nodes())
+		nLinks = len(self.G.edges())
+		nOD = len(self.g)
+		parameters = np.array([g_tr, beta_tr, scaling, c, lambda_1, nNodes, nLinks, nOD])
+		self.__save_jBilevel_2_tmp(A,B,C,h, flow_k, data, dxdb_k, dxdg_k, g_k, beta_k, ld, parameters)
+
+		# RUN OPTIMIZATION MODEL
+		shell("JULIA jointBilevel.jl", printOut=True)
+		
+		# READ JULIA RESULT
+		g_k_1 = np.load("tmp_jl/g_k_1.npz")
+		beta_k_1 = np.load("tmp_jl/beta_k_1.npz")
+		g_k = {sort_od[i]:g_k_1[i] for i in range(nOD)}
+		beta_k = [beta_k_1[i] for i in range(nPoly)]
+
+		return g_k, beta_k
+
+	def __save_jBilevel_2_tmp(self, A,B,C,h, flow_k, data, dxdb, dxdg, g_k, beta_k, ld, parameters):
+		mkdir_n("tmp_jl")
+		np.savez("tmp_jl/A.npz", A)
+		np.savez("tmp_jl/B.npz", B)
+		np.savez("tmp_jl/C.npz", C)
+		np.savez("tmp_jl/h.npz", h)
+		np.savez("tmp_jl/flow_k.npz", flow_k)
+		np.savez("tmp_jl/data.npz", data)
+		np.savez("tmp_jl/dxdb.npz", dxdb)
+		np.savez("tmp_jl/dxdg.npz", dxdg)
+		np.savez("tmp_jl/gk.npz" , g_k)
+		np.savez("tmp_jl/betak.npz", beta_k)
+		np.savez("tmp_jl/par.npz", parameters)
+		dict2json(ld, "tmp_jl/ld.json")
+
+
 
 	def get_gradient_jointBilevel(self, G_data, dxdb=None, dxdg=None ):
 		"""
@@ -268,8 +333,7 @@ def gradient_jointBilevel(G, g_k, fcoeffs, dxdb, dxdg, G_data, link_id_dict):
 	return Delta_g, Delta_fcoeffs
 
 
-
-def jointBilevel(G, g_k, fcoeffs, N, link_id_dict, G_data, dxdb, dxdg, g_tr = 45, beta_tr = 0.002, scaling=0, c=10, lambda_1=300):
+def get_jointBilevel_canonical(G, g_k, fcoeffs, N, link_id_dict, G_data):
 	"""
     b
 
@@ -350,6 +414,36 @@ def jointBilevel(G, g_k, fcoeffs, N, link_id_dict, G_data, dxdb, dxdg, g_tr = 45
 	B = np.concatenate((B1, B2, B3, B4), axis=0)
 	C = np.concatenate((C1.T, C2.T, C3.T, C4.T), axis=0)
 	h = np.asmatrix(np.concatenate((h1.T, h2.T, h3.T, h4.T), axis=0))
+	return A, B, C, h, sort_ld, sort_od
+
+def jointBilevel(G, g_k, fcoeffs, N, link_id_dict, G_data, dxdb, dxdg, g_tr = 45, beta_tr = 0.002, scaling=0, c=10, lambda_1=300):
+	"""
+    b
+
+    Parameters
+    ----------
+
+	N : node-link incidence matrix, sparse ...
+
+
+    Returns
+    -------
+    A
+
+    """
+
+	A,B,C,h, sort_ld, sort_od = get_jointBilevel_canonical(G, g_k, fcoeffs, N, link_id_dict, G_data)
+	
+	K = 1
+	nOD = len(g_k.keys())
+	nNodes = len(G.nodes())
+	nLinks = len(G.edges())
+	nPoly = len(fcoeffs)
+	beta_k = fcoeffs
+	ld = link_id_dict
+
+	flow_k = np.transpose(np.array([G.get_edge_data(ld[idx][0],ld[idx][1])['flow'] for idx in sort_ld]))
+	data = np.transpose(np.array([G_data.get_edge_data(ld[idx][0],ld[idx][1])['flow'] for idx in sort_ld]))
 	
 	#TODO: convert to sparse matrices in order to make the computation faster
 	
