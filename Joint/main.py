@@ -2,8 +2,8 @@ from utils import *
 import tnet
 import msa
 
-netFile = "../networks/NYC_net.txt"
-gFile = "../networks/NYC_trips.txt"
+netFile = "../networks/NYC_Uber_net.txt"
+gFile = "../networks/NYC_Uber_trips.txt"
 
 opt_method = "gd" # options "joint" and "gd"
 
@@ -11,7 +11,8 @@ opt_method = "gd" # options "joint" and "gd"
 fcoeffs_truth = [1,0,0,0,0.2,0]
 tNet = tnet.tNet(netFile=netFile, gFile=gFile, fcoeffs=fcoeffs_truth)
 print(1)
-tNet.solveMSA()
+tNet.solveMSA_julia()
+#tNet.solveMSA()
 G_data = tNet.G.copy()
 g_data = tNet.g.copy()
 
@@ -27,7 +28,7 @@ for i in range(200):
 	print(1)
 	tNet.set_fcoeffs(fcoeff)
 	print(1)
-	tNet.solveMSA()
+	tNet.solveMSA_julia()
 	print(1)
 	# estimate derivatives
 	dxdb = tNet.get_dxdb(delta=0.5, divide=1e1)

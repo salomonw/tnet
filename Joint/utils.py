@@ -3,7 +3,7 @@ import os
 import csv
 import json
 import subprocess
-
+import numpy as np
 
 proto = pickle.HIGHEST_PROTOCOL
 
@@ -162,3 +162,12 @@ def shell(command, printOut=True):
     else:
         proc = subprocess.Popen(command, shell=True)
         proc.wait(timeout=None)
+
+
+def write_file(string, fname):
+    f = open(fname, 'w')
+    f.write(string)
+    f.close()
+
+def read_vector(fname, delimiter):
+    x = np.loadtxt(fname, delimiter=delimiter)

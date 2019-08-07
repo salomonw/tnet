@@ -6,6 +6,14 @@ import msa
 from scipy.sparse import lil_matrix
 from scipy.special import comb
 from scipy.linalg import block_diag
+import julia
+
+# import module of TrafficAssign
+from julia import Julia
+jl = Julia()
+jl.eval('push!(LOAD_PATH, "/Volumes/GoogleDrive/My Drive/Github/tnet")')
+from julia import TrafficAssign
+
 
 class tNet():
 	def __init__(self, netFile=None, gFile=None, G=None, g=None, fcoeffs=[1,0,0,0,0.15,0]):
@@ -95,6 +103,38 @@ class tNet():
 		self.TAP.run(fcoeffs=self.fcoeffs, build_t0=False)
 		self.G = self.TAP.graph
 
+
+	def solveMSA_julia(self):
+		"""
+	    Solve the MSA flows for a traffic network using the MSA module by 
+	    __ .. __ in Julia
+
+	    Parameters
+	    ----------
+
+		tnet object
+
+	    Returns
+	    -------
+	    An updated nx object.
+	    """	
+		pwd = os.getcwd()
+		link_id = writeNetfile(self.G, self.g, "tmp_jl/net.txt")
+		writeTripsfile(self.g, "tmp_jl/trips.txt")
+		TrafficAssign.solve_TAP("tmp", "tmp_jl/net.txt", "tmp_jl/trips.txt", self.fcoeffs)
+		t_k = np.loadtxt("tmp_jl/link_flow.txt", delimiter="\n")
+		tt = np.loadtxt("tmp_jl/link_travel_time.txt", delimiter="\n")		
+		idx = 0
+		for (s,t) in link_id.values():
+			self.G[s][t]["t_k"] = t_k[idx]
+			self.G[s][t]["tt"] = tt[idx]
+			idx +=1
+
+		#jl.eval('push!(LOAD_PATH,"/Volumes/GoogleDrive/My Drive/Github/tnet")')
+		#push!(LOAD_PATH,"/Volumes/GoogleDrive/My Drive/Github/tnet")
+		#using TrafficAssign
+
+
 	def get_dxdb(self, delta, divide=1):
 		"""
 	    Get the derviatives of the link flows wiht resepect to the 
@@ -115,6 +155,7 @@ class tNet():
 		dxdb = msa.get_dxdb(TAP, delta=delta, divide=divide, num_cores=8)
 		TAP = msa.TrafficAssignment(self.G, self.gGraph, fcoeffs=fcoeffs_orig, iterations=350)
 		return dxdb
+
 
 	def set_fcoeffs(self, fcoeff):
 		"""
@@ -753,6 +794,71 @@ def readODdemandFile(gfile, node_id_map):
 						od_d[(origin, dest)] = d
 	return od_d
 
+
+
+def writeNetfile(G, g, fname):
+	"""
+	write net file from G (networkx)
+
+	Parameters
+	----------
+
+	G: a neteworkx object
+
+	Returns
+	-------
+	file
+	"""
+	nZones = str(len(g))
+	nNodes = str(len(G.nodes()))
+	nLinks = str(len(G.edges()))
+	header = "<NUMBER OF ZONES> "+nZones+"\n<NUMBER OF NODES> "+nNodes+"\n<FIRST THRU NODE> 1\n<NUMBER OF LINKS> "+nLinks+"\n<END OF METADATA>\n~  Init node  Term node  Capacity  Length  Free Flow Time  B  Power  Speed limit  Toll  Type  ;\n"
+	text = ""
+	idx = 0
+	link_id = {}
+	for (s,t) in G.edges():
+		idx += 1
+		link_id[idx] = (s,t)
+		text += "\t"+str(s)+"\t"+str(t)+"\t"+str(G[s][t]["capacity"])+"\t"+str(G[s][t]["length"])+"\t"+str(G[s][t]["t_0"]) \
+		+"\t"+str(G[s][t]["B"])+"\t"+str(G[s][t]["power"])+"\t"+str(G[s][t]["speedLimit"])+"\t"+str(G[s][t]["toll"]) \
+		+"\t"+str(G[s][t]["type"])+"\t;\n"
+	write_file(header+text, fname)
+	return link_id
+
+def writeTripsfile(g, fname):
+	"""
+	write trips file from dict 
+
+	Parameters
+	----------
+]
+	g dict
+
+	Returns
+	-------
+	file
+	"""
+	totalFlow = sum([d for d in g.values()])
+	header = "<NUMBER OF ZONES> "+str(len(g))+"\n<TOTAL OD FLOW> "+str(totalFlow)+"\n<END OF METADATA>\n\n"
+
+	text = ""
+	nodes = list(set([s for s,t in g.keys()]))
+	nodes.extend(list(set([t for s,t in g.keys()])))
+	nodes = list(set(nodes))
+	for o in nodes:
+		txt = ""
+		txt = "Origin " + str(o) + "\n"
+		demandTxt = ""
+		for d in nodes:
+			try:
+				gk = str(g[(o,d)])
+			except:
+				gk = str(0)
+			demandTxt += str(d) + "\t : \t" + str(gk) + ";\n"
+		text += txt + demandTxt + "\n\n"
+	write_file(header+text, fname)
+
+
 def getZones(gdict):
 	"""
     Returns Zones in a OD file
@@ -868,18 +974,6 @@ def greenshieldFlow(speed, capacity, free_flow_speed):
 
 
 
-'''
-
-
-def objJoint(tNet, G_data, fcoeffs, dxdb, dxdg, lambda_1):
-	DeltaF = np.zeros(tNet.nOD + len(fcoeffs) + len(lambda_1) , 1 )
-	for edge in G.edges():
-		DeltaF += [2*(G_data.get_edge_data(s,t)['flow']-G_estimate.get_edge_data(s,t)['flow'])*dxdb[edge];
-					2*(G_data.get_edge_data(s,t)['flow']-G_estimate.get_edge_data(s,t)['flow'])*dxdg[edge];
-					lambda_1];
-	return DeltaF
-
-'''
 
 
 
