@@ -70,22 +70,22 @@ function ta_frank_wolfe(ta_data, fcoeffs; method=:bfw, max_iter_no=2000, step=:e
 
         bpr = similar(x)
         for i=1:length(bpr)
-            bpr[i] = free_flow_time[i] * sum([( fcoeffs[p] + B[i] * (x[i]/capacity[i])^p ) for p = 1:length(fcoeffs)])
-            bpr[i] += toll_factor * toll[i] + distance_factor * link_length[i]
+            bpr[i] = free_flow_time[i] * sum([( fcoeffs[p] * (x[i]/capacity[i])^p ) for p = 1:length(fcoeffs)])
+            #bpr[i] += toll_factor * toll[i] + distance_factor * link_length[i]
         end
         return bpr
     end
 
-    function objective(x)
+    function objective(x, fcoeffs)
         # value = free_flow_time .* ( x + B.* ( x.^(power+1)) ./ (capacity.^power) ./ (power+1))
         # return sum(value)
 
-        sum = 0.0
+        sum_ = 0.0
         for i=1:length(x)
-            sum += free_flow_time[i] * ( x[i] + B[i]* ( x[i]^(power[i]+1)) / (capacity[i]^power[i]) / (power[i]+1))
-            sum += toll_factor *toll[i] + distance_factor * link_length[i]
+            sum_ += x[i] * free_flow_time[i] * sum([( fcoeffs[p] * (x[i]/capacity[i])^p ) for p = 1:length(fcoeffs)])
+            #sum += toll_factor *toll[i] + distance_factor * link_length[i]
         end
-        return sum
+        return sum_
     end
 
     function gradient(x, fcoeffs)
@@ -247,7 +247,6 @@ function ta_frank_wolfe(ta_data, fcoeffs; method=:bfw, max_iter_no=2000, step=:e
         travel_time = BPR(xk, fcoeffs)
         yk_FW = all_or_nothing(travel_time)
 
-
         # Basic Frank-Wolfe Direction
         dk_FW = yk_FW - xk
         Hk_diag = hessian_diag(xk) # Hk_diag is a diagonal vector of matrix Hk
@@ -356,7 +355,7 @@ function ta_frank_wolfe(ta_data, fcoeffs; method=:bfw, max_iter_no=2000, step=:e
 
         if step==:exact
             # Line Search from xk in the direction dk
-            optk = optimize(tau -> objective(xk+tau*dk), 0.0, 1.0, GoldenSection())
+            optk = optimize(tau -> objective(xk+tau*dk, fcoeffs), 0.0, 1.0, GoldenSection())
             tauk = optk.minimizer
         elseif step==:newton
             # Newton step
@@ -369,7 +368,7 @@ function ta_frank_wolfe(ta_data, fcoeffs; method=:bfw, max_iter_no=2000, step=:e
         average_excess_cost = ( dot(xk, travel_time) - dot(yk_FW, travel_time) ) / sum(travel_demand)
         if log==:on
             # println("k=$k,\ttauk=$tauk,\tobjective=$(objective(xk)),\taec=$average_excess_cost")
-            @printf("k=%4d, tauk=%15.10f, objective=%15f, aec=%15.10f\n", k, tauk, objective(xk), average_excess_cost)
+            @printf("k=%4d, tauk=%15.10f, objective=%15f, aec=%15.10f\n", k, tauk, objective(xk, fcoeffs), average_excess_cost)
         end
 
         # rel_gap = ( objective(xk) - best_objective ) / best_objective
@@ -396,7 +395,7 @@ function ta_frank_wolfe(ta_data, fcoeffs; method=:bfw, max_iter_no=2000, step=:e
         println("Iteration time = $iteration_time seconds")
     end
 
-    return xk, travel_time, objective(xk)
+    return xk, travel_time, objective(xk, fcoeffs)
 
 end
 
@@ -404,7 +403,7 @@ end
 
 function solve_TAP(netName, net_file, trip_file, fcoeffs)
     ta_data = load_ta_network(netName, net_file, trip_file)
-    link_flow, link_travel_time, objective = ta_frank_wolfe(ta_data, fcoeffs,  max_iter_no=5000, tol=1e-5)
+    link_flow, link_travel_time, objective = ta_frank_wolfe(ta_data, fcoeffs,  max_iter_no=500, tol=1e-4, log=:off, method=:cfw)
     return link_flow, link_travel_time
 end
 

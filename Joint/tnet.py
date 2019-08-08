@@ -6,7 +6,8 @@ import msa
 from scipy.sparse import lil_matrix
 from scipy.special import comb
 from scipy.linalg import block_diag
-import julia
+from multiprocessing import Pool
+import copy 
 
 # import module of TrafficAssign
 from julia import Julia
@@ -100,11 +101,11 @@ class tNet():
 	    An nx object.
 
 	    """
-		self.TAP.run(fcoeffs=self.fcoeffs, build_t0=False)
+		#self.TAP.run(fcoeffs=self.fcoeffs, build_t0=False)
 		self.G = self.TAP.graph
 
 
-	def solveMSA_julia(self):
+	def get_solveMSA_julia(self, fcoeffs=False):
 		"""
 	    Solve the MSA flows for a traffic network using the MSA module by 
 	    __ .. __ in Julia
@@ -118,43 +119,7 @@ class tNet():
 	    -------
 	    An updated nx object.
 	    """	
-		pwd = os.getcwd()
-		link_id = writeNetfile(self.G, self.g, "tmp_jl/net.txt")
-		writeTripsfile(self.g, "tmp_jl/trips.txt")
-		TrafficAssign.solve_TAP("tmp", "tmp_jl/net.txt", "tmp_jl/trips.txt", self.fcoeffs)
-		t_k = np.loadtxt("tmp_jl/link_flow.txt", delimiter="\n")
-		tt = np.loadtxt("tmp_jl/link_travel_time.txt", delimiter="\n")		
-		idx = 0
-		for (s,t) in link_id.values():
-			self.G[s][t]["t_k"] = t_k[idx]
-			self.G[s][t]["tt"] = tt[idx]
-			idx +=1
-
-		#jl.eval('push!(LOAD_PATH,"/Volumes/GoogleDrive/My Drive/Github/tnet")')
-		#push!(LOAD_PATH,"/Volumes/GoogleDrive/My Drive/Github/tnet")
-		#using TrafficAssign
-
-
-	def get_dxdb(self, delta, divide=1):
-		"""
-	    Get the derviatives of the link flows wiht resepect to the 
-	    cost coefficient parameters.
-
-	    Parameters
-	    ----------
-
-		gdict: OD demands dict
-
-	    Returns
-	    -------
-	    An nx object.
-
-	    """
-		fcoeffs_orig = self.fcoeffs.copy()
-		TAP = msa.TrafficAssignment(self.G, self.gGraph, fcoeffs=self.fcoeffs, iterations=350)
-		dxdb = msa.get_dxdb(TAP, delta=delta, divide=divide, num_cores=8)
-		TAP = msa.TrafficAssignment(self.G, self.gGraph, fcoeffs=fcoeffs_orig, iterations=350)
-		return dxdb
+		solveMSA_julia(self, fcoeffs=fcoeffs)
 
 
 	def set_fcoeffs(self, fcoeff):
@@ -172,7 +137,7 @@ class tNet():
 
 	    """		
 		self.fcoeffs = fcoeff
-		TAP = msa.TrafficAssignment(self.G, self.gGraph, fcoeffs=fcoeff)
+		#TAP = msa.TrafficAssignment(self.G, self.gGraph, fcoeffs=fcoeff)
 
 	def set_g(self, g):
 		"""
@@ -649,7 +614,7 @@ def perturbDemandConstant(g, max_var):
 		g[od] = demand + demand*max_var*np.random.uniform(-1,1)
 	return g
 
-def flowDiff(G_data, G_estimate):
+def normFlowDiff(G_data, G_estimate):
 	"""
     estimate the difference between the flows of two networks
     with identical network topology. 
@@ -746,11 +711,9 @@ def readNetFile(netFile, sep="\t"):
     # Read the network file
 	with open(netFile) as file_flow:
 		file_flow_lines = file_flow.readlines()
-    
-	i = -9 #TODO: change this to an assertation condition 
+
 	for line in file_flow_lines:
-		i += 1
-		if i > 0:
+		if ";" in line and "~" not in line:
 			links = line.split(sep)
 			G.add_edge(int(links[1]), int(links[2]), capacity=float(links[3]), \
 				length=float(links[4]), t_0=float(links[5]), \
@@ -809,7 +772,7 @@ def writeNetfile(G, g, fname):
 	-------
 	file
 	"""
-	nZones = str(len(g))
+	nZones = str(len(set([i for i,j in g.keys()])))
 	nNodes = str(len(G.nodes()))
 	nLinks = str(len(G.edges()))
 	header = "<NUMBER OF ZONES> "+nZones+"\n<NUMBER OF NODES> "+nNodes+"\n<FIRST THRU NODE> 1\n<NUMBER OF LINKS> "+nLinks+"\n<END OF METADATA>\n~  Init node  Term node  Capacity  Length  Free Flow Time  B  Power  Speed limit  Toll  Type  ;\n"
@@ -838,8 +801,9 @@ def writeTripsfile(g, fname):
 	-------
 	file
 	"""
+	nZones = str(len(set([i for i,j in g.keys()])))
 	totalFlow = sum([d for d in g.values()])
-	header = "<NUMBER OF ZONES> "+str(len(g))+"\n<TOTAL OD FLOW> "+str(totalFlow)+"\n<END OF METADATA>\n\n"
+	header = "<NUMBER OF ZONES> "+nZones+"\n<TOTAL OD FLOW> "+str(totalFlow)+"\n<END OF METADATA>\n\n"
 
 	text = ""
 	nodes = list(set([s for s,t in g.keys()]))
@@ -974,6 +938,113 @@ def greenshieldFlow(speed, capacity, free_flow_speed):
 
 
 
+def solveMSA_julia(tnet, fcoeffs=False):
+	"""
+    Solve the MSA flows for a traffic network using the MSA module by 
+    __ .. __ in Julia
+
+    Parameters
+    ----------
+
+	tnet object
+
+    Returns
+    -------
+    An updated nx object.
+    """	
+	if fcoeffs==False:
+		fcoeffs = tnet.fcoeffs
+	pwd = os.getcwd()
+	link_id = writeNetfile(tnet.G, tnet.g, "tmp_jl/net.txt")
+	writeTripsfile(tnet.g, "tmp_jl/trips.txt")
+	flow, t_k = TrafficAssign.solve_TAP("tmp", "tmp_jl/net.txt", "tmp_jl/trips.txt", fcoeffs)
+	idx = 0
+	for (s,t) in link_id.values():
+		tnet.G[s][t]["flow"] = flow[idx]
+		tnet.G[s][t]["t_k"] = t_k[idx]
+		idx +=1
+	return tnet
+
+def get_dxdb(tnet_, delta=0.05, divide=1, num_cores=False):
+	"""
+    Get the derviatives of the link flows wiht resepect to the 
+    cost coefficient parameters.
+
+    Parameters
+    ----------
+
+	gdict: OD demands dict
+
+    Returns
+    -------
+    An nx object.
+
+    """
+	tnet = copy.deepcopy(tnet_)
+	if num_cores == False:
+		num_cores = len(tnet.fcoeffs)
+	fcoeffs_vec = []
+	for i in range(len(tnet.fcoeffs)):
+		fcoeffs_i = tnet.fcoeffs.copy()
+		fcoeffs_i[i] = fcoeffs_i[i] + delta
+		fcoeffs_vec.append(fcoeffs_i)
+	dxdb = []
+	for fcoeffs in fcoeffs_vec:
+		dxdb.append(get_get_dxdb_single(tnet, fcoeffs, delta=delta, divide=divide))
+	#pool = Pool(num_cores)
+	#dxdb = [pool.apply(get_get_dxdb_single, (tnet, coeff, delta, divide) ) for coeff in fcoeffs_vec]
+	#pool.close()
+	return dxdb
+
+
+
+def get_get_dxdb_single(tNet, fcoeffs, delta=0.05, divide=1):
+	"""
+	Derivative of the flow distribution with respect to a single beta coefficient
+	in the cost function. Uses a finite-difference approach
+
+	parameters
+	----------
+
+	fcoeffs: the actual coefficient vector
+	delta: how big/small is the step
+
+	Returns
+	-------
+	a dictionary (key=edge, value=derivative)
+	"""
+
+	G_orig = tNet.G.copy()
+	tNet.set_fcoeffs(fcoeffs)
+	solveMSA_julia(tNet, tNet.fcoeffs)
+	G_new = tNet.G.copy()
+	flowDiff_ = flowDiff(G_new, G_orig)
+	dxdb_i = {k : v/delta/divide for k,v in flowDiff_.items()}
+	return dxdb_i 
+
+
+
+def flowDiff(graph1, graph2):
+    """
+    Return the difference between the flows of two graphs.
+
+    Parameters
+    ----------
+
+    graph1: netwrorkx obj
+    graph2: networkx obj
+
+    Returns
+    -------
+    a dictionary with name od edge and diff in flows. graph1-graph2
+
+    """
+    flowDiff_ = {}
+    for edge in graph1.edges():
+        flow1 = graph1[edge[0]][edge[1]]['flow']
+        flow2 = graph2[edge[0]][edge[1]]['flow']
+        flowDiff_[edge] = flow1-flow2
+    return flowDiff_
 
 
 
