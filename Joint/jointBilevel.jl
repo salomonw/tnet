@@ -65,12 +65,6 @@ function jointBilevel()
 	y_ = [y[i,j] for i = 1:numOD for j = 1:numNodes]
 
 	# build IP-1 constraint
-	#constr = zero(AffExpr)
-	#constr = constr A*y_
-	#constr = constr + B*beta 
-	#constr = constr + C*epsilon.*scaling
-	#constr = constr + h  
-
 	constr = A*y_ + B*beta + C*epsilon.*scaling + h
 	@constraint(m, constr .<= 0);
 	@constraint(m, beta[1] == 1);
@@ -94,17 +88,10 @@ function jointBilevel()
 	M2 =  (1/4)*B*iH2*B'  ;
 	M2 = (M2 + M2')/2 +1e-3*Matrix(I, size(M2,1), size(M2,1));
 
-	#nlconstr = 0
-	#nlconstr = nlconstr + dot(beta, H2*beta)
-	#nlconstr = nlconstr + dot(v, M1*v)
-	#nlconstr = nlconstr + dot(v, M2*v)
-	#nlconstr = nlconstr - h'*v
-
 	qd = dot(beta, H2*beta)+ dot(v, M1*v) + dot(v, M2*v)
 	ln = dot(-h,v)
 	nlconstr = qd+ln
 	@constraint(m, nlconstr <= ksi)
-	#@constraint(m, nlconstr[1] <= ksi)
 
 	# Creating Objective function
 	DeltaF = zeros(numOD+numPoly+length(lambda_1) , 1);

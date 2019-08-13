@@ -101,7 +101,7 @@ class tNet():
 	    An nx object.
 
 	    """
-		#self.TAP.run(fcoeffs=self.fcoeffs, build_t0=False)
+		self.TAP.run(fcoeffs=self.fcoeffs, build_t0=False)
 		self.G = self.TAP.graph
 
 
@@ -265,7 +265,7 @@ class tNet():
 
 	    """
 		if dxdg == None:
-			dxdb = get_dxdb(delta=0.01, divide=1e1)
+			dxdb = get_dxdb(delta=0.05, divide=1e1)
 			dxdg = msa.get_dxdg(tNet.G, tNet.g, k=1)
 		return gradient_jointBilevel(self.G, self.g, self.fcoeffs, dxdb, dxdg, G_data, self.link_id_dict)
 
@@ -462,9 +462,9 @@ def jointBilevel(G, g_k, fcoeffs, N, link_id_dict, G_data, dxdb, dxdg, g_tr = 45
 	y = [m.addVar(name="y_{"+str((i+1))+","+str(j+1)+"}") for i in range(nNodes) for j in range(nOD)]
 	g = [m.addVar(lb=0, name="g_{"+str(i) + "}") for i in range(nOD)]   
 	eps = [m.addVar(name="eps_{"+str(i) + "}") for i in range(K)]
-	beta = [m.addVar(lb=0, name="beta_{"+str(i) + "}") for i in range(nPoly)]  
+	beta = [m.addVar(name="beta_{"+str(i) + "}") for i in range(nPoly)]  
 	v = [m.addVar(lb=0, name="v{"+str(i) + "}") for i in range(np.shape(A)[0])] 
-	ksi = m.addVar(lb=0, name="ksi")
+	ksi = m.addVar(lb=0,  name="ksi")
 
 	# add constraints
 	# first 
@@ -476,7 +476,7 @@ def jointBilevel(G, g_k, fcoeffs, N, link_id_dict, G_data, dxdb, dxdg, g_tr = 45
 	for i in range(len(A.T)):
 		m.addConstr(LinExpr(np.dot(A[:,i], v))==0)
 	
-	#print(1)
+
 	# third (primal-dual gap)
 	# Creating H1 and H2
 	H1 = np.eye(K)
@@ -485,17 +485,10 @@ def jointBilevel(G, g_k, fcoeffs, N, link_id_dict, G_data, dxdb, dxdg, g_tr = 45
 	iH1 = np.linalg.inv(H1)
 	iH2 = np.linalg.inv(H2)
 
-	#print(2.0)
 	M1 = np.multiply((1/4), np.outer(C, np.outer(iH1,C.T)))
 	M1 = np.divide((M1 + M1.T),2)
 	M2 = np.multiply((1/4), np.dot(B, np.dot(iH2,B.T)))
 	M2 = np.divide((M2 + M2.T),2) + np.multiply(1e-3, np.eye(len(M2)))
-
-	#print(2.1)
-	#print(np.shape(iH1))
-	#print(np.shape(iH2))
-	#print(np.shape(M1))
-	#print(np.shape(M1))
 
 	nlconstr = 0
 	nlconstr += QuadExpr(H1.dot(eps).dot(eps))  
@@ -505,7 +498,7 @@ def jointBilevel(G, g_k, fcoeffs, N, link_id_dict, G_data, dxdb, dxdg, g_tr = 45
 	for i in range(len(h)):
 		nlconstr -= LinExpr(h[i]*v[i])
 	m.addConstr(nlconstr<=ksi)
-	#print(2)
+
 	# fourth constraint (trust regions)
 	idx = 0 
 	od_idx = {}
@@ -528,7 +521,7 @@ def jointBilevel(G, g_k, fcoeffs, N, link_id_dict, G_data, dxdb, dxdg, g_tr = 45
 	for i in sort_ld:
 		dxdg_ = np.array([dxdg[w, ld[i]] for w in sort_od])
 		dxdb_ = np.array([dxdb[j][ld[i]] for j in range(nPoly)])
-		DeltaF = np.add(DeltaF, -np.array([2*(flow_k[i] - data[i]) * dxdb_ , 2*(flow_k[i] - data[i]) * dxdg_ , -lambda_1]));
+		DeltaF = np.add(DeltaF, -np.array([2*(flow_k[i] - data[i]) * dxdb_ , 2*(flow_k[i] - data[i]) * dxdg_ , lambda_1]));
 	
 	obj = 0
 	for b in range(len(beta)):
@@ -980,19 +973,19 @@ def get_dxdb(tnet_, delta=0.05, divide=1, num_cores=False):
     An nx object.
 
     """
-	tnet = copy.deepcopy(tnet_)
+	tnet_copy = copy.deepcopy(tnet_)
 	if num_cores == False:
-		num_cores = len(tnet.fcoeffs)
+		num_cores = len(tnet_copy.fcoeffs)
 	fcoeffs_vec = []
-	for i in range(len(tnet.fcoeffs)):
-		fcoeffs_i = tnet.fcoeffs.copy()
+	for i in range(len(tnet_copy.fcoeffs)):
+		fcoeffs_i = tnet_copy.fcoeffs.copy()
 		fcoeffs_i[i] = fcoeffs_i[i] + delta
 		fcoeffs_vec.append(fcoeffs_i)
 	dxdb = []
 	for fcoeffs in fcoeffs_vec:
-		dxdb.append(get_get_dxdb_single(tnet, fcoeffs, delta=delta, divide=divide))
+		dxdb.append(get_get_dxdb_single(tnet_copy, fcoeffs, delta=delta, divide=divide))
 	#pool = Pool(num_cores)
-	#dxdb = [pool.apply(get_get_dxdb_single, (tnet, coeff, delta, divide) ) for coeff in fcoeffs_vec]
+	#dxdb = [pool.apply(get_get_dxdb_single, (tnet_copy, coeff, delta, divide) ) for coeff in fcoeffs_vec]
 	#pool.close()
 	return dxdb
 

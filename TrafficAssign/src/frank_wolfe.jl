@@ -6,7 +6,7 @@
 include("misc.jl")
 
 
-function ta_frank_wolfe(ta_data, fcoeffs; method=:bfw, max_iter_no=2000, step=:exact, log=:off, tol=1e-3)
+function ta_frank_wolfe(ta_data, fcoeffs; method=:bfw, max_iter_no=2000, step_=:exact, log=:off, tol=1e-3)
 
     setup_time = time()
 
@@ -70,7 +70,7 @@ function ta_frank_wolfe(ta_data, fcoeffs; method=:bfw, max_iter_no=2000, step=:e
 
         bpr = similar(x)
         for i=1:length(bpr)
-            bpr[i] = free_flow_time[i] * sum([( fcoeffs[p] * (x[i]/capacity[i])^p ) for p = 1:length(fcoeffs)])
+            bpr[i] = free_flow_time[i] * sum([( fcoeffs[p] * (x[i]/capacity[i])^(p-1) ) for p = 1:length(fcoeffs)])
             #bpr[i] += toll_factor * toll[i] + distance_factor * link_length[i]
         end
         return bpr
@@ -82,7 +82,7 @@ function ta_frank_wolfe(ta_data, fcoeffs; method=:bfw, max_iter_no=2000, step=:e
 
         sum_ = 0.0
         for i=1:length(x)
-            sum_ += x[i] * free_flow_time[i] * sum([( fcoeffs[p] * (x[i]/capacity[i])^p ) for p = 1:length(fcoeffs)])
+            sum_ += x[i] * free_flow_time[i] + sum([ fcoeffs[p] * x[i]^p/capacity[i]^(p-1)  for p = 1:length(fcoeffs)])
             #sum += toll_factor *toll[i] + distance_factor * link_length[i]
         end
         return sum_
@@ -92,11 +92,11 @@ function ta_frank_wolfe(ta_data, fcoeffs; method=:bfw, max_iter_no=2000, step=:e
         return BPR(x, fcoeffs)
     end
 
-    function hessian(x)
+    function hessian(x, fcoeffs)
         no_arc = Base.length(start_node)
 
         h = zeros(no_arc,no_arc)
-        h_diag = hessian_diag(x)
+        h_diag = hessian_diag(x, fcoeffs)
 
         for i=1:no_arc
             h[i,i] = h_diag[i]
@@ -107,11 +107,12 @@ function ta_frank_wolfe(ta_data, fcoeffs; method=:bfw, max_iter_no=2000, step=:e
         #Link travel time = free flow time * ( 1 + B * (flow/capacity)^Power ).
     end
 
-    function hessian_diag(x)
+    function hessian_diag(x, fcoeffs)
         h_diag = Array{Float64}(undef, size(x))
         for i=1:length(x)
-            if power[i] >= 1.0
-                h_diag[i] = free_flow_time[i] * B[i] * power[i] * (x[i]^(power[i]-1)) / (capacity[i]^power[i])
+            if length(fcoeffs) < 0.5
+                h_diag[i] = free_flow_time[i] * sum([( fcoeffs[p] * p * (x[i]^(p-2)/capacity[i]^(p-1) ) ) for p = 1:length(fcoeffs)])
+               # h_diag[i] = free_flow_time[i] * B[i] * power[i] * (x[i]^(power[i]-1)) / (capacity[i]^power[i])
             else
                 h_diag[i] = 0 # Some cases, power is zero.
             end
@@ -249,7 +250,6 @@ function ta_frank_wolfe(ta_data, fcoeffs; method=:bfw, max_iter_no=2000, step=:e
 
         # Basic Frank-Wolfe Direction
         dk_FW = yk_FW - xk
-        Hk_diag = hessian_diag(xk) # Hk_diag is a diagonal vector of matrix Hk
 
         # Finding a feasible direction
         if method == :fw # Original Frank-Wolfe
@@ -259,6 +259,7 @@ function ta_frank_wolfe(ta_data, fcoeffs; method=:bfw, max_iter_no=2000, step=:e
                 sk_CFW = yk_FW
                 dk_CFW = sk_CFW - xk
             else
+                Hk_diag = hessian_diag(xk, fcoeffs) # Hk_diag is a diagonal vector of matrix Hk
                 dk_bar = sk_CFW - xk # sk_CFW from the previous iteration k-1
 
                 Nk = dot( dk_bar, Hk_diag .* dk_FW )
@@ -294,6 +295,7 @@ function ta_frank_wolfe(ta_data, fcoeffs; method=:bfw, max_iter_no=2000, step=:e
                 dk_BFW = dk_FW
                 is_first_iteration = false
             elseif k==2 || is_second_iteration  # Second Iteration is like CFW
+                Hk_diag = hessian_diag(xk, fcoeffs) # Hk_diag is a diagonal vector of matrix Hk
                 # println("there")
                 dk_bar = sk_BFW_old - xk # sk_BFW_old from the previous iteration 1
 
@@ -319,7 +321,7 @@ function ta_frank_wolfe(ta_data, fcoeffs; method=:bfw, max_iter_no=2000, step=:e
                 # println("over there $tauk")
                 # sk_BFW, tauk is from iteration k-1
                 # sk_BFW_old is from iteration k-2
-
+                Hk_diag = hessian_diag(xk, fcoeffs) # Hk_diag is a diagonal vector of matrix Hk
                 dk_bar  = sk_BFW - xk
                 dk_bbar = tauk * sk_BFW - xk + (1-tauk) * sk_BFW_old
 
@@ -353,12 +355,13 @@ function ta_frank_wolfe(ta_data, fcoeffs; method=:bfw, max_iter_no=2000, step=:e
         # dk is now identified.
 
 
-        if step==:exact
+        if step_==:exact
             # Line Search from xk in the direction dk
             optk = optimize(tau -> objective(xk+tau*dk, fcoeffs), 0.0, 1.0, GoldenSection())
             tauk = optk.minimizer
-        elseif step==:newton
+        elseif step_==:newton
             # Newton step
+            Hk_diag = hessian_diag(xk, fcoeffs) # Hk_diag is a diagonal vector of matrix Hk
             tauk = - dot( gradient(xk, fcoeffs), dk ) / dot( dk, Hk_diag.*dk )
             tauk = max(0, min(1, tauk))
         end
@@ -403,7 +406,7 @@ end
 
 function solve_TAP(netName, net_file, trip_file, fcoeffs)
     ta_data = load_ta_network(netName, net_file, trip_file)
-    link_flow, link_travel_time, objective = ta_frank_wolfe(ta_data, fcoeffs,  max_iter_no=500, tol=1e-4, log=:off, method=:cfw)
+    link_flow, link_travel_time, objective = ta_frank_wolfe(ta_data, fcoeffs,  max_iter_no=500, tol=1e-4, log=:off, method=:fw)
     return link_flow, link_travel_time
 end
 
