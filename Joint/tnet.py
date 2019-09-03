@@ -161,6 +161,7 @@ class tNet():
 		self.gGraph = buildDemandGraph(g)
 		self.TAP = self.build_TAP()
 
+	@timeit
 	def solve_jointBilevel(self, G_data, dxdb, dxdg, g_tr = 45, beta_tr = 0.002, scaling=0, c=10, lambda_1=300):
 		"""
 	    solve joint bilevel problem using the information of the network
@@ -196,6 +197,7 @@ class tNet():
 	    """	
 	    # DATA TO JULIA
 		A, B, C, h, sort_ld, sort_od = get_jointBilevel_canonical(self.G, self.g, self.fcoeffs, self.incidence_matrix, self.link_id_dict, G_data)
+		print(A)
 		K = 1
 		nPoly = len(self.fcoeffs)
 		
@@ -244,7 +246,7 @@ class tNet():
 		dict2json(ld, "tmp_jl/ld.json")
 
 
-
+	@timeit
 	def get_gradient_jointBilevel(self, G_data, dxdb=None, dxdg=None ):
 		"""
 	    build the gradient (OD demand and cost coefficients) with respect to the
@@ -265,7 +267,7 @@ class tNet():
 
 	    """
 		if dxdg == None:
-			dxdb = get_dxdb(delta=0.05, divide=1e1)
+			dxdb = get_dxdb(delta=delta, divide=divide)
 			dxdg = msa.get_dxdg(tNet.G, tNet.g, k=1)
 		return gradient_jointBilevel(self.G, self.g, self.fcoeffs, dxdb, dxdg, G_data, self.link_id_dict)
 
@@ -321,7 +323,7 @@ def gradient_jointBilevel(G, g_k, fcoeffs, dxdb, dxdg, G_data, link_id_dict):
 
     """
 	# sort dictionaries
-	ld = link_id_dict
+	ld = link_id_dict # TODO: Check this is equal to the incidence matrix! !!
 	sort_ld = sorted(ld)
 	sort_od = sorted(g_k)
 	nPoly = len(fcoeffs)
@@ -330,13 +332,19 @@ def gradient_jointBilevel(G, g_k, fcoeffs, dxdb, dxdg, G_data, link_id_dict):
 	# create objective function
 	DeltaF = np.array([0, 0])
 	for i in sort_ld:
-		dxdg_ = np.array([dxdg[w, ld[i]] for w in sort_od])
-		dxdb_ = np.array([dxdb[j][ld[i]] for j in range(nPoly)])
-		DeltaF = np.add(DeltaF, np.array([2*(flow_k[i] - data[i]) * dxdb_ , 2*(flow_k[i] - data[i]) * dxdg_]));
+		if dxdb:
+			dxdg_ = np.array([dxdg[w, ld[i]] for w in sort_od])
+			dxdb_ = np.array([dxdb[j][ld[i]] for j in range(nPoly)])
+			DeltaF = np.add(DeltaF, np.array([2*(flow_k[i] - data[i]) * dxdb_ , 2*(flow_k[i] - data[i]) * dxdg_]))
+		else:
+			dxdg_ = np.array([dxdg[w, ld[i]] for w in sort_od])
+			DeltaF = np.add(DeltaF, np.array([0 , 2*(flow_k[i] - data[i]) * dxdg_]));
+
 	Delta_g = {sort_od[i]: DeltaF[1][i]  for i in range(len(DeltaF[1]))}
-	Delta_fcoeffs = DeltaF[0]
+	Delta_fcoeffs = DeltaF[0]		
 
 	return Delta_g, Delta_fcoeffs
+
 
 
 def get_jointBilevel_canonical(G, g_k, fcoeffs, N, link_id_dict, G_data):
@@ -439,7 +447,6 @@ def jointBilevel(G, g_k, fcoeffs, N, link_id_dict, G_data, dxdb, dxdg, g_tr = 45
     """
 
 	A,B,C,h, sort_ld, sort_od = get_jointBilevel_canonical(G, g_k, fcoeffs, N, link_id_dict, G_data)
-	
 	K = 1
 	nOD = len(g_k.keys())
 	nNodes = len(G.nodes())
@@ -462,14 +469,14 @@ def jointBilevel(G, g_k, fcoeffs, N, link_id_dict, G_data, dxdb, dxdg, g_tr = 45
 	y = [m.addVar(name="y_{"+str((i+1))+","+str(j+1)+"}") for i in range(nNodes) for j in range(nOD)]
 	g = [m.addVar(lb=0, name="g_{"+str(i) + "}") for i in range(nOD)]   
 	eps = [m.addVar(name="eps_{"+str(i) + "}") for i in range(K)]
-	beta = [m.addVar(name="beta_{"+str(i) + "}") for i in range(nPoly)]  
+	beta = [m.addVar(lb=0, name="beta_{"+str(i) + "}") for i in range(nPoly)]  
 	v = [m.addVar(lb=0, name="v{"+str(i) + "}") for i in range(np.shape(A)[0])] 
 	ksi = m.addVar(lb=0,  name="ksi")
 
 	# add constraints
 	# first 
 	for i in range(len(A)):
-		constr = LinExpr(LinExpr(np.dot(A[i,:],y)) +  LinExpr(np.dot(B[i,:],beta)) + LinExpr(np.dot(C[i,:],eps)) + h[i,:])
+		constr = LinExpr(LinExpr(np.dot(A[i,:],y)) +  LinExpr(np.dot(B[i,:],beta)) + LinExpr(np.dot(scaling*C[i,:],eps)) + h[i,:])
 		m.addConstr(constr <= 0)
 
 	# second 
@@ -488,7 +495,7 @@ def jointBilevel(G, g_k, fcoeffs, N, link_id_dict, G_data, dxdb, dxdg, g_tr = 45
 	M1 = np.multiply((1/4), np.outer(C, np.outer(iH1,C.T)))
 	M1 = np.divide((M1 + M1.T),2)
 	M2 = np.multiply((1/4), np.dot(B, np.dot(iH2,B.T)))
-	M2 = np.divide((M2 + M2.T),2) + np.multiply(1e-3, np.eye(len(M2)))
+	M2 = np.divide((M2 + M2.T),2) + np.multiply(1e-2, np.eye(len(M2)))
 
 	nlconstr = 0
 	nlconstr += QuadExpr(H1.dot(eps).dot(eps))  
@@ -521,7 +528,7 @@ def jointBilevel(G, g_k, fcoeffs, N, link_id_dict, G_data, dxdb, dxdg, g_tr = 45
 	for i in sort_ld:
 		dxdg_ = np.array([dxdg[w, ld[i]] for w in sort_od])
 		dxdb_ = np.array([dxdb[j][ld[i]] for j in range(nPoly)])
-		DeltaF = np.add(DeltaF, -np.array([2*(flow_k[i] - data[i]) * dxdb_ , 2*(flow_k[i] - data[i]) * dxdg_ , lambda_1]));
+		DeltaF = np.add(DeltaF, np.array([2*(flow_k[i] - data[i]) * dxdb_ , 2*(flow_k[i] - data[i]) * dxdg_ , lambda_1]));
 	
 	obj = 0
 	for b in range(len(beta)):
@@ -604,7 +611,7 @@ def perturbDemandConstant(g, max_var):
 
     """
 	for od,demand in g.items():
-		g[od] = demand + demand*max_var*np.random.uniform(-1,1)
+		g[od] = demand*2#+ demand*max_var*np.random.uniform(-1,1)
 	return g
 
 def normFlowDiff(G_data, G_estimate):
@@ -781,6 +788,7 @@ def writeNetfile(G, g, fname):
 	write_file(header+text, fname)
 	return link_id
 
+
 def writeTripsfile(g, fname):
 	"""
 	write trips file from dict 
@@ -930,8 +938,8 @@ def greenshieldFlow(speed, capacity, free_flow_speed):
 
 
 
-
-def solveMSA_julia(tnet, fcoeffs=False):
+@timeit
+def solveMSA_julia(tnet, fcoeffs=False, net_fname="tmp_jl/net.txt", trips_fname="tmp_jl/trips.txt"):
 	"""
     Solve the MSA flows for a traffic network using the MSA module by 
     __ .. __ in Julia
@@ -948,9 +956,9 @@ def solveMSA_julia(tnet, fcoeffs=False):
 	if fcoeffs==False:
 		fcoeffs = tnet.fcoeffs
 	pwd = os.getcwd()
-	link_id = writeNetfile(tnet.G, tnet.g, "tmp_jl/net.txt")
-	writeTripsfile(tnet.g, "tmp_jl/trips.txt")
-	flow, t_k = TrafficAssign.solve_TAP("tmp", "tmp_jl/net.txt", "tmp_jl/trips.txt", fcoeffs)
+	link_id = writeNetfile(tnet.G, tnet.g, net_fname)
+	writeTripsfile(tnet.g, trips_fname)
+	flow, t_k = TrafficAssign.solve_TAP("tmp", net_fname, trips_fname, fcoeffs)
 	idx = 0
 	for (s,t) in link_id.values():
 		tnet.G[s][t]["flow"] = flow[idx]
@@ -958,7 +966,8 @@ def solveMSA_julia(tnet, fcoeffs=False):
 		idx +=1
 	return tnet
 
-def get_dxdb(tnet_, delta=0.05, divide=1, num_cores=False):
+@timeit
+def get_dxdb(tnet_, delta=0.05, divide=1, num_cores=False, **kwargs):
 	"""
     Get the derviatives of the link flows wiht resepect to the 
     cost coefficient parameters.
@@ -973,25 +982,30 @@ def get_dxdb(tnet_, delta=0.05, divide=1, num_cores=False):
     An nx object.
 
     """
-	tnet_copy = copy.deepcopy(tnet_)
+	#tnet_copy = copy.deepcopy(tnet_)
 	if num_cores == False:
-		num_cores = len(tnet_copy.fcoeffs)
+		num_cores = len(tnet_.fcoeffs)
 	fcoeffs_vec = []
-	for i in range(len(tnet_copy.fcoeffs)):
-		fcoeffs_i = tnet_copy.fcoeffs.copy()
+	for i in range(len(tnet_.fcoeffs)):
+		fcoeffs_i = tnet_.fcoeffs.copy()
 		fcoeffs_i[i] = fcoeffs_i[i] + delta
 		fcoeffs_vec.append(fcoeffs_i)
 	dxdb = []
-	for fcoeffs in fcoeffs_vec:
-		dxdb.append(get_get_dxdb_single(tnet_copy, fcoeffs, delta=delta, divide=divide))
-	#pool = Pool(num_cores)
-	#dxdb = [pool.apply(get_get_dxdb_single, (tnet_copy, coeff, delta, divide) ) for coeff in fcoeffs_vec]
-	#pool.close()
+	'''
+	for i in range(len(tnet_copy.fcoeffs)):
+		dxdb.append(get_get_dxdb_single(tnet_copy, fcoeffs_vec[i], delta=delta, divide=divide))
+	'''	
+	pool = Pool(num_cores)
+	dxdb = [pool.apply(get_get_dxdb_single, (tnet_, coeff, delta, \
+		divide, "tmp_jl/"+str(fcoeffs_vec.index(coeff))+ \
+		"net.txt", "tmp_jl/"+str(fcoeffs_vec.index(coeff))+"trips.txt" ) ) for coeff in fcoeffs_vec]
+	pool.close()
+	
 	return dxdb
 
 
 
-def get_get_dxdb_single(tNet, fcoeffs, delta=0.05, divide=1):
+def get_get_dxdb_single(tNet, fcoeffs, delta=0.05, divide=1, net_fname="tmp_jl/net.txt", trips_fname="tmp_jl/trips.txt"):
 	"""
 	Derivative of the flow distribution with respect to a single beta coefficient
 	in the cost function. Uses a finite-difference approach
@@ -1009,8 +1023,9 @@ def get_get_dxdb_single(tNet, fcoeffs, delta=0.05, divide=1):
 
 	G_orig = tNet.G.copy()
 	tNet.set_fcoeffs(fcoeffs)
-	solveMSA_julia(tNet, tNet.fcoeffs)
+	solveMSA_julia(tNet, fcoeffs=tNet.fcoeffs, net_fname=net_fname, trips_fname=trips_fname)
 	G_new = tNet.G.copy()
+	#print([tNet.G[s][t]["flow"] for (s,t) in tNet.G.edges()])
 	flowDiff_ = flowDiff(G_new, G_orig)
 	dxdb_i = {k : v/delta/divide for k,v in flowDiff_.items()}
 	return dxdb_i 
@@ -1040,4 +1055,18 @@ def flowDiff(graph1, graph2):
     return flowDiff_
 
 
+def get_totalTravelTime(G):
+    """
+    Return the total travel time of a network
 
+    Parameters
+    ----------
+
+    G: networkx obj
+
+    Returns
+    -------
+    a float 
+
+    """
+    return sum([G[u][v]["t_k"]*G[u][v]["flow"] for (u,v) in G.edges()])

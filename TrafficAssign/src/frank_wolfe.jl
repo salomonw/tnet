@@ -6,7 +6,7 @@
 include("misc.jl")
 
 
-function ta_frank_wolfe(ta_data, fcoeffs; method=:bfw, max_iter_no=2000, step_=:exact, log=:off, tol=1e-3)
+function ta_frank_wolfe(ta_data, fcoeffs; method=:bfw, max_iter_no=1000, step_=:exact, log=:off, tol=1e-3)
 
     setup_time = time()
 
@@ -406,7 +406,7 @@ end
 
 function solve_TAP(netName, net_file, trip_file, fcoeffs)
     ta_data = load_ta_network(netName, net_file, trip_file)
-    link_flow, link_travel_time, objective = ta_frank_wolfe(ta_data, fcoeffs,  max_iter_no=500, tol=1e-4, log=:off, method=:fw)
+    link_flow, link_travel_time, objective = ta_frank_wolfe(ta_data, fcoeffs,  max_iter_no=1000, tol=1e-10, log=:off, method=:fw)
     return link_flow, link_travel_time
 end
 

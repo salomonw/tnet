@@ -485,7 +485,7 @@ def flowDiff(graph1, graph2):
         flowDiff_[edge] = flow1-flow2
     return flowDiff_
 
-
+@timeit
 def get_dxdg(G, gDict, k=1):
     """
     Derivative of the flow distribution with respect to the OD demands.
