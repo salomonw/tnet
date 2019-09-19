@@ -2,7 +2,7 @@
 # CFW and BFW in Mitradijieva and Lindberg (2013)
 
 # required packages: Graphs, Optim
-
+using DelimitedFiles
 include("misc.jl")
 
 
@@ -17,7 +17,7 @@ function ta_frank_wolfe(ta_data, fcoeffs; method=:bfw, max_iter_no=1000, step_=:
         println("Line Search Step: $step")
         println("Maximum Interation Number: $max_iter_no")
         println("Tolerance for AEC: $tol")
-        println("Number of processors: ", nprocs())
+        println("Number of processors: ", length(Sys.cpu_info()))
     end
 
 
@@ -82,7 +82,7 @@ function ta_frank_wolfe(ta_data, fcoeffs; method=:bfw, max_iter_no=1000, step_=:
 
         sum_ = 0.0
         for i=1:length(x)
-            sum_ += x[i] * free_flow_time[i] + sum([ fcoeffs[p] * x[i]^p/capacity[i]^(p-1)  for p = 1:length(fcoeffs)])
+            sum_ += free_flow_time[i] + sum([ fcoeffs[p] * x[i]^p/capacity[i]^(p-1)  for p = 1:length(fcoeffs)])
             #sum += toll_factor *toll[i] + distance_factor * link_length[i]
         end
         return sum_
@@ -178,12 +178,12 @@ function ta_frank_wolfe(ta_data, fcoeffs; method=:bfw, max_iter_no=1000, step_=:
 
 
     function all_or_nothing(travel_time)
-        if nprocs() > 1 # if multiple CPU processes are available
-            all_or_nothing_parallel(travel_time)
-        else
+       # if length(Sys.cpu_info()) >= 2 # if multiple CPU processes are available
+       #     all_or_nothing_parallel(travel_time)
+        #else
             all_or_nothing_single(travel_time)
-            # when nprocs()==1, using @distributed just adds unnecessary setup time. I guess.
-        end
+            # when length(Sys.cpu_info())==1, using @distributed just adds unnecessary setup time. I guess.
+        #end
     end
 
 
@@ -199,8 +199,17 @@ function ta_frank_wolfe(ta_data, fcoeffs; method=:bfw, max_iter_no=1000, step_=:
 
 
     # Finding a starting feasible solution
-    travel_time = BPR(zeros(number_of_links), fcoeffs)
-    x0 = all_or_nothing(travel_time)
+    
+    #x_0 = vec(readdlm("tmp_jl/flow.txt"))
+    x_0 = zeros(number_of_links)
+    if length(x_0) == number_of_links
+        travel_time = BPR(x_0, fcoeffs)
+        x0 = all_or_nothing(travel_time)
+    else
+        travel_time = BPR(zeros(number_of_links), fcoeffs)
+        x0 = all_or_nothing(travel_time)
+    end
+    #println(x0)
 
     # Initializing variables
     xk = x0
@@ -398,6 +407,7 @@ function ta_frank_wolfe(ta_data, fcoeffs; method=:bfw, max_iter_no=1000, step_=:
         println("Iteration time = $iteration_time seconds")
     end
 
+    writedlm("tmp_jl/flow.txt", xk)
     return xk, travel_time, objective(xk, fcoeffs)
 
 end
@@ -406,9 +416,13 @@ end
 
 function solve_TAP(netName, net_file, trip_file, fcoeffs)
     ta_data = load_ta_network(netName, net_file, trip_file)
-    link_flow, link_travel_time, objective = ta_frank_wolfe(ta_data, fcoeffs,  max_iter_no=1000, tol=1e-10, log=:off, method=:fw)
+    link_flow, link_travel_time, objective = ta_frank_wolfe(ta_data, fcoeffs,  max_iter_no=500, tol=1e-10, log=:off, method=:fw)
     return link_flow, link_travel_time
 end
 
 
-
+function solve_TAP_txt(netName, text_net, text_trip, fcoeffs)
+    ta_data = load_ta_network(netName, text_net, text_trip)
+    link_flow, link_travel_time, objective = ta_frank_wolfe(ta_data, fcoeffs,  max_iter_no=300, tol=1e-5, log=:off, method=:fw)
+    return link_flow, link_travel_time
+end
