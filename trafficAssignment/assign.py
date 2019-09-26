@@ -52,7 +52,7 @@ def derivative_FW(a, G, fcoeffs):
 	return sum_derivative
 
 
-def assignment(G, g, fcoeffs, flow=True, method='FW', accuracy=0.0001, max_iter=10):
+def assignment(G, g, fcoeffs, flow=True, method='FW', accuracy=0.0001, max_iter=1000):
 	if flow==True:
 		set_zero_x0(G)
 	else:
@@ -69,5 +69,5 @@ def assignment(G, g, fcoeffs, flow=True, method='FW', accuracy=0.0001, max_iter=
 		tstt = get_total_system_travel_time(G, fcoeffs)
 		RG = abs(tstt/sptt - 1)
 		j += 1
-	#print(RG)
+		#print(RG)
 	return G
