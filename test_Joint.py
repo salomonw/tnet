@@ -8,8 +8,8 @@ from matplotlib import rc
 import numpy as np
 
 def set_up():
-	netFile ="networks/NYC_small_net.txt"
-	gFile = "networks/NYC_small_trips.txt"
+	netFile ="networks/net.txt"
+	gFile = "networks/trips.txt"
 	# Build a ground truth network
 	fcoeffs_truth = [1,0,0,0,0.35,0]
 	tNet = tnet.tNet(netFile=netFile, gFile=gFile, fcoeffs=fcoeffs_truth)
@@ -48,7 +48,7 @@ def solve_od_fcoffs(G_data, g_data, g_k, fcoeff, tNet, opt_method, iterations):
 		dxdg = msa.get_dxdg(tNet.G, tNet.g, k =1)
 		#print(dxdg)
 		# set trust regions
-		g_tr = 150/((i+1))#**(3/4))
+		g_tr = 200/((i+1))#**(3/4))
 		beta_tr = 0.01/((i+1))#**(1/1))
 		
 		# Optimize:
@@ -60,12 +60,11 @@ def solve_od_fcoffs(G_data, g_data, g_k, fcoeff, tNet, opt_method, iterations):
 		if opt_method == "Joint":
 		# solve joint bilevel
 			g_k, fcoeff = tNet.solve_jointBilevel(G_data, dxdb, dxdg, g_tr = g_tr, beta_tr = beta_tr, scaling=1e10, c=30, lambda_1=0)
-			#g_k, fcoeff = tNet.solve_jointBilevel_julia(G_data, dxdb, dxdg, g_tr = g_tr, beta_tr = beta_tr, scaling=1e2, c=30, lambda_1=0)
 		if opt_method == "constant":
 			dxdb = False
 			Delta_g, Delta_fcoeffs = tNet.get_gradient_jointBilevel(G_data, dxdb=dxdb, dxdg=dxdg)
 			g_k = {k: max(min(max(v - Delta_g[k], v-g_tr), v+g_tr),0) for k, v in g_k.items()}			
-		if opt_method =="sequential":
+		if opt_method =="alternating":
 			# move on the cost coefficient descent
 			Delta_g, Delta_fcoeffs = tNet.get_gradient_jointBilevel(G_data, dxdb=dxdb, dxdg=dxdg)
 			fcoeff = [max(min(max(fcoeff[n] - Delta_fcoeffs[n], fcoeff[n]-beta_tr), fcoeff[n]+beta_tr),0) for n in range(tNet.nPoly)]
@@ -96,21 +95,21 @@ def solve_od_fcoffs(G_data, g_data, g_k, fcoeff, tNet, opt_method, iterations):
 	return flowNormList, gNormlist, fcoeff
 
 
-to_solve = ["constant", "GD", "sequential", "Joint"]
-#to_solve = ["GD", "constant", "sequential"]
-#to_solve = ["GD",  "constant", "sequential"]
+#to_solve = ["constant", "GD", "alternating", "Joint"]
+#to_solve = ["GD", "constant", "alternating"]
+#to_solve = ["GD",  "constant", "alternating"]
 #to_solve = ["GD", "Joint", "constant"]
 #to_solve = ["GD", "constant"]
 #to_solve = ["GD"]
 #to_solve = ["constant"]
-#to_solve = ["Joint"]
-#to_solve = ['sequential']
+to_solve = ["Joint"]
+#to_solve = ['alternating']
 
 rc('font',**{'family':'Times New Roman', 'size': 16})
 rc('text', usetex=True)
 
 
-iterations = 60
+iterations = 90
 fcoeffs_list = []
 G_data, g_data, g_0, fcoeffs_0, tNet, fcoeffs_truth = set_up()
 x_axis  = [i+1 for i in range(iterations-1)]
@@ -127,16 +126,16 @@ if "constant" in to_solve:
 	tNet = copy.deepcopy(tNet_0)
 	flowNormConstant, gNormConstant, fcoeffConstant = solve_od_fcoffs(G_data, g_data, g_0, fcoeffs_0, tNet, "constant", iterations)
 	fcoeffs_list.append(fcoeffConstant)
-if "sequential" in to_solve:
+if "alternating" in to_solve:
 	tNet = copy.deepcopy(tNet_0)
-	flowNormSequential, gNormSequential, fcoeffSequential = solve_od_fcoffs(G_data, g_data, g_0, fcoeffs_0, tNet, "sequential", iterations)
+	flowNormSequential, gNormSequential, fcoeffSequential = solve_od_fcoffs(G_data, g_data, g_0, fcoeffs_0, tNet, "alternating", iterations)
 	fcoeffs_list.append(fcoeffSequential)
 
 
 plt.figure()
 plt.plot(x_axis, flowNormConstant[1:], label='$f(\\cdot) =$ BPR', marker='s', markevery=(0,20))
 plt.plot(x_axis, flowNormGD[1:], label='GD', marker = 'o', markevery=(0,10))
-plt.plot(x_axis, flowNormSequential[1:], label='Sequential', marker=11, markevery=(0,25))
+plt.plot(x_axis, flowNormSequential[1:], label='Alternating', marker=11, markevery=(0,25))
 plt.plot(x_axis, flowNormJOINT[1:], label='Joint', marker = 'o', markevery=(0,10))
 plt.xlabel("Iteration,$j$")
 plt.ylabel("Flow error, $F(\\mathbf{g}, \\boldmath{\\beta})$")
@@ -148,7 +147,7 @@ plt.savefig('errorCost_single_'+tNet.netFileName[9:-8]+'.png')
 plt.figure()
 plt.plot(x_axis, gNormConstant[1:], label='$f(\\cdot) =$ BPR', marker='s', markevery=(0,20))
 plt.plot(x_axis, gNormGD[1:], label='GD', marker = 'o', markevery=(0,10))
-plt.plot(x_axis, gNormSequential[1:], label='Sequential', marker=11, markevery=(0,25))
+plt.plot(x_axis, gNormSequential[1:], label='Alternating', marker=11, markevery=(0,25))
 plt.plot(x_axis, gNormJOINT[1:], label='Joint', marker = 'o', markevery=(0,10))
 plt.xlabel("Iteration,$j$")
 plt.ylabel("Demand error, $||(\\mathbf{g} - \\mathbf{g}^{*})||$")

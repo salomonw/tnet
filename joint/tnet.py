@@ -10,6 +10,7 @@ from scipy.linalg import block_diag
 from multiprocessing import Pool
 import copy 
 import os
+import time
 '''
 tnet_dir = os.getcwd()[:-5]
 cmd = 'push!(LOAD_PATH, "'+ tnet_dir+ '")'
@@ -458,7 +459,6 @@ def jointBilevel(G, g_k, fcoeffs, N, link_id_dict, G_data, dxdb, dxdg, g_tr = 45
 	data = np.transpose(np.array([G_data.get_edge_data(ld[idx][0],ld[idx][1])['flow'] for idx in sort_ld]))
 	
 	#TODO: convert to sparse matrices in order to make the computation faster
-	
 	# ------ Build guroby model -----
 
 	# TODO: add quicksums in order to make computation faster
@@ -474,6 +474,7 @@ def jointBilevel(G, g_k, fcoeffs, N, link_id_dict, G_data, dxdb, dxdg, g_tr = 45
 
 	# add constraints
 	# first 
+	#print(time.time())
 	for i in range(len(A)):
 		constr = LinExpr(LinExpr(np.dot(A[i,:],y)) +  LinExpr(np.dot(B[i,:],beta)) + LinExpr(np.dot(scaling*C[i,:],eps)) + h[i,:])
 		m.addConstr(constr <= 0)
@@ -482,29 +483,43 @@ def jointBilevel(G, g_k, fcoeffs, N, link_id_dict, G_data, dxdb, dxdg, g_tr = 45
 	for i in range(len(A.T)):
 		m.addConstr(LinExpr(np.dot(A[:,i], v))==0)
 	
-
+	#print(time.time())
 	# third (primal-dual gap)
 	# Creating H1 and H2
+
 	H1 = np.eye(K)
 	H2 = np.diag(np.divide(1,setUpFitting(nPoly,c)))
 
 	iH1 = np.linalg.inv(H1)
 	iH2 = np.linalg.inv(H2)
-
+	#print(time.time())
 	M1 = np.multiply((1/4), np.outer(C, np.outer(iH1,C.T)))
 	M1 = np.divide((M1 + M1.T),2)
 	M2 = np.multiply((1/4), np.dot(B, np.dot(iH2,B.T)))
 	M2 = np.divide((M2 + M2.T),2) + np.multiply(1e-2, np.eye(len(M2)))
-
+	#print(time.time())
 	nlconstr = 0
-	nlconstr += QuadExpr(H1.dot(eps).dot(eps))  
+	nlconstr += QuadExpr(H1.dot(eps).dot(eps))
+	#print(time.time())  
 	nlconstr += QuadExpr(H2.dot(beta).dot(beta))   
+	print(time.time())
+	'''
+	for j in range(len(v)):
+	for i in range(len(v)):
+		nlconstr +=  QuadExpr(v[j]*v[i]*M1[i,j])
+		nlconstr += QuadExpr(v[j]*v[i]*M2[i,j])
+	'''
 	nlconstr += QuadExpr(M1.dot(v).dot(v) )
+	
+
+	print(time.time())
 	nlconstr += QuadExpr(M2.dot(v).dot(v) )
+	#print(time.time())
 	for i in range(len(h)):
 		nlconstr -= LinExpr(h[i]*v[i])
+	#print(time.time())
 	m.addConstr(nlconstr<=ksi)
-
+	#print(time.time())
 	# fourth constraint (trust regions)
 	idx = 0 
 	od_idx = {}
@@ -515,11 +530,11 @@ def jointBilevel(G, g_k, fcoeffs, N, link_id_dict, G_data, dxdb, dxdg, g_tr = 45
 		m.addConstr(g[idx] >= g_k[i] - g_tr)
 		m.addConstr(g[idx] <= g_k[i] + g_tr)
 		idx +=1
-
+	#print(time.time())
 	for i in range(nPoly):
 		m.addConstr(beta[i] >= beta_k[i] - beta_tr)
 		m.addConstr(beta[i] <= beta_k[i] + beta_tr)
-
+	#print(time.time())
 	m.addConstr(beta[0]==1)
 	#print(3)
 	# create objective function
@@ -536,7 +551,7 @@ def jointBilevel(G, g_k, fcoeffs, N, link_id_dict, G_data, dxdb, dxdg, g_tr = 45
 		obj += LinExpr(np.multiply(DeltaF[1][w] , LinExpr(np.subtract(g_k[od_idx[w]], g[w]) ))) 
 	obj += LinExpr(np.multiply(DeltaF[2] , ksi )) 
 
-
+	#print(time.time())
 	#m.addConstr(ksi/1e10<=1e6)
 	m.setObjective(obj, GRB.MINIMIZE)
 	#print(4)
