@@ -6,6 +6,7 @@ import subprocess
 import numpy as np
 import time
 from functools import update_wrapper
+import gzip 
 
 proto = pickle.HIGHEST_PROTOCOL
 
@@ -101,7 +102,7 @@ def mkdir_n(dirName):
 
 def csv2dict(fname):
 	"""
-    read a csv fiel to a dict when kays and values are
+    read a csv file to a dict when keys and values are
     separate by a comma
 
     Parameters
@@ -119,6 +120,26 @@ def csv2dict(fname):
 		k, v = row
 		d[k] = v
 	return d
+
+
+def dict2csv(dict_, fname):
+    """
+    writes a csv file from a directory with comma separated
+    values
+
+    Parameters
+    ----------
+    dict_: a dictionary we aim to save
+    fname: name of the output file
+
+    Returns
+    -------
+    a csv file
+
+    """
+    w = csv.writer(open(fname, "w"))
+    for key, val in dict_.items():
+        w.writerow([key, val])
 
 
 def e_vect(n, i):
@@ -140,6 +161,19 @@ def e_vect(n, i):
     return zeros
 
 def dict2json(dict_, fname):
+    """
+    writes a json file from a directory 
+
+    Parameters
+    ----------
+    dict_: a dictionary we aim to save
+    fname: name of the output file
+
+    Returns
+    -------
+    a csv file
+
+    """
     with open(fname, 'w') as fp:
         json.dump(dict_, fp)
 
@@ -167,25 +201,88 @@ def shell(command, printOut=True):
 
 
 def write_file(string, fname):
+    """
+    writes a text file from a string 
+
+    Parameters
+    ----------
+    string: some text in string format
+    fname: name of the output file
+
+    Returns
+    -------
+    a text file
+
+    """
     f = open(fname, 'w')
     f.write(string)
     f.close()
 
 def read_vector(fname, delimiter):
+    """
+    read a numpy vector
+
+    Parameters
+    ----------
+    fname: name of the file where the vector is stored
+    delimiter
+
+    Returns
+    -------
+    a numpy array
+
+    """
     x = np.loadtxt(fname, delimiter=delimiter)
 
 
 def decorator(d):
-    "Make function d a decorator: d wraps a function fn."
+    """
+    Make function d a decorator: d wraps a function fn.
+
+    Parameters
+    ----------
+    d: function 
+    
+    """
     def _d(fn):
         return update_wrapper(d(fn), fn)
     update_wrapper(_d, d)
     return _d
 
 
+
+def list2txt(list_, fname):
+    """
+    writes a text file from a list
+
+    Parameters
+    ----------
+    list_: a python list
+    fname: name of the output file
+
+    Returns
+    -------
+    a text file
+
+    """
+    with open(fname, 'w') as filehandle:
+        for listitem in list_:
+            filehandle.write('%s\n' % listitem)
+
 @decorator
 def timeit(f):
-    """time a function, used as decorator"""
+    """
+    time a function by applying a decorator
+
+    Parameters
+    ----------
+    f: function 
+
+    Returns
+    -------
+    a decorated function 
+
+    """
     def new_f(*args, **kwargs):
         bt = time.time()
         r = f(*args, **kwargs)

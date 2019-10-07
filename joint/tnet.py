@@ -502,19 +502,24 @@ def jointBilevel(G, g_k, fcoeffs, N, link_id_dict, G_data, dxdb, dxdg, g_tr = 45
 	nlconstr += QuadExpr(H1.dot(eps).dot(eps))
 	#print(time.time())  
 	nlconstr += QuadExpr(H2.dot(beta).dot(beta))   
-	print(time.time())
-	'''
-	for j in range(len(v)):
-	for i in range(len(v)):
-		nlconstr +=  QuadExpr(v[j]*v[i]*M1[i,j])
-		nlconstr += QuadExpr(v[j]*v[i]*M2[i,j])
-	'''
-	nlconstr += QuadExpr(M1.dot(v).dot(v) )
 	
 
+
+	nlconstr += quicksum(v[j]*v[i]*M1[i,j] for i in range(len(v)) for j in range(len(v)))
+	nlconstr += quicksum(v[j]*v[i]*M2[i,j] for i in range(len(v)) for j in range(len(v)))
+	'''
 	print(time.time())
-	nlconstr += QuadExpr(M2.dot(v).dot(v) )
+	for j in range(len(v)):
+		for i in range(len(v)):
+			nlconstr +=  QuadExpr(v[j]*v[i]*M1[i,j])
+			nlconstr += QuadExpr(v[j]*v[i]*M2[i,j])
+		print(j)
+		'''
+	#nlconstr += QuadExpr(M1.dot(v).dot(v) )
+	#nlconstr += QuadExpr(M2.dot(v).dot(v) )
 	#print(time.time())
+
+
 	for i in range(len(h)):
 		nlconstr -= LinExpr(h[i]*v[i])
 	#print(time.time())
