@@ -9,8 +9,8 @@ from matplotlib import rc
 import numpy as np
 
 def set_up():
-	netFile ="networks/Braess3_net.txt"
-	gFile = "networks/Braess3_trips.txt"
+	netFile ="networks/EMA_net.txt"
+	gFile = "networks/EMA_trips.txt"
 	# Build a ground truth network
 	fcoeffs_truth = [1,0,0,0,0.35,0]
 	tNet = tnet.tNet(netFile=netFile, gFile=gFile, fcoeffs=fcoeffs_truth)
@@ -148,7 +148,6 @@ if "Joint" in to_solve:
 	fcoeffs_list.append(fcoeffJOINT)
 	dict2csv(tNet.g, "results/joint/output/"+tNet.netFileName[9:-8]+'_OD_demand'+ '.csv')
 	list2txt(tNet.fcoeffs, "results/joint/output/"+tNet.netFileName[9:-8]+'_costFunct'+ '.txt')
-	tNet.write_flow_file("results/joint/output/"+tNet.netFileName[9:-8]+'_estimated_flow.txt')
 
 
 

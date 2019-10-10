@@ -272,6 +272,44 @@ class tNet():
 			dxdg = msa.get_dxdg(tNet.G, tNet.g, k=1)
 		return gradient_jointBilevel(self.G, self.g, self.fcoeffs, dxdb, dxdg, G_data, self.link_id_dict)
 
+
+	def read_flow_file(self, fname):
+	    """
+	    Read flow file in tntp format. If G is provided, 
+	    we add the info to G, otherwise, generate a nx object.
+
+	    Parameters
+	    ----------
+		
+		fname: input file name
+	    G: networkx obj
+
+	    Returns
+	    -------
+	    a networkx object 
+
+	    """
+	    read_flowFile(fname, self.G)
+
+	def write_flow_file(self, fname):
+	    """
+	    Write flow file in tntp format. If G is provided, 
+	    we add the info to G, otherwise, generate a nx object.
+
+	    Parameters
+	    ----------
+		
+		fname: input file name
+	    G: networkx obj
+
+	    Returns
+	    -------
+	    a networkx object 
+
+	    """
+	    write_flowFile(self.G, fname)
+
+
 def incidence_matrix(G):
 	"""
     build incidence matrix and column index dictionary. Note that since 
@@ -1096,3 +1134,75 @@ def get_totalTravelTime(G):
 
     """
     return sum([G[u][v]["t_k"]*G[u][v]["flow"] for (u,v) in G.edges()])
+
+
+
+
+def read_flowFile(fname, G=False):
+	"""
+	Read flow file in tntp format. If G is provided, 
+	we add the info to G, otherwise, generate a nx object.
+
+	Parameters
+	----------
+
+	fname: input file name
+	G: networkx obj
+
+	Returns
+	-------
+	a networkx object 
+
+	"""
+	with open(fname) as flows:
+		flow_lines = flows.readlines()
+	if G==False:
+		G = nx.DiGraph()
+	for line in flow_lines:
+		if "Tail" not in line and ";" in line:
+			line_ = line.split("\t")
+			i=0
+		for j in line_:
+			if i == 1:
+				s = int(j)
+			elif i == 2:
+				t = int(j)
+			elif i == 3:
+				flow = float(j)
+			i += 1
+		if G==False:
+			G.add_edge(s,t)
+			G[s][t]['flow'] = flow
+		else:
+			G[s][t]['flow'] = flow
+	return G
+
+
+
+def write_flowFile(G, fname):
+    """
+    Write flow file in tntp format. If G is provided, 
+    we add the info to G, otherwise, generate a nx object.
+
+    Parameters
+    ----------
+	
+	fname: input file name
+    G: networkx obj
+
+    Returns
+    -------
+    a networkx object 
+
+    """
+    nNodes = str(len(G.nodes()))
+    nLinks = str(len(G.edges()))
+    header = "~\tTail\tHead\tVolume\t;\n"
+    text = ""
+    idx = 0
+    link_id = {}
+    for (s,t) in G.edges():
+    	idx += 1
+    	link_id[idx] = (s,t)
+    	text += "\t"+str(s)+"\t"+str(t)+"\t"+str(G[s][t]["flow"])+"\t;\n"
+    write_file(header+text, fname)
