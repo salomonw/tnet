@@ -27,7 +27,7 @@ def set_up():
 	d1 = 0.01
 
 	to_solve = ["constant", "GD", "alternating", "Joint"]
-	iterations = 300
+	iterations = 1
 
 	tstamp = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 	dir_out = tstamp + "_test_" + tNet.netFileName[9:-8]
