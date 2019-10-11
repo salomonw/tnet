@@ -7,35 +7,44 @@ import matplotlib as mpl
 from matplotlib import pyplot as plt
 from matplotlib import rc
 import numpy as np
+from datetime import datetime
 
 def set_up():
 	netFile ="networks/EMA_net.txt"
+	flowFile = "networks/EMA_flow.txt"
 	gFile = "networks/EMA_trips.txt"
-	# Build a ground truth network
-	fcoeffs_truth = [1,0,0,0,0.35,0]
-	tNet = tnet.tNet(netFile=netFile, gFile=gFile, fcoeffs=fcoeffs_truth)
+	fcoeff = [1,0,0,0,0.15,0]
+	tNet = tnet.tNet(netFile=netFile, gFile=gFile, fcoeffs=fcoeff)
 	
-	tNet = tnet.solveMSA_julia(tNet, tNet.fcoeffs)
+	tNet.read_flow_file(flowFile)
 	G_data = tNet.G.copy()
 	g_data = tNet.g.copy()
 
-	# Now, use the data to try to estimate demands, to do so 
-	# let us perturb the truth demands. 
+	# set iteration start from zero 
 	g_k = tnet.perturbDemandConstant(tNet.g, max_var=0.5)
-	fcoeff = [1,0,0,0,0.15,0]
 	
+	c1 = 50
+	d1 = 0.01
+
+	to_solve = ["constant", "GD", "alternating", "Joint"]
+	iterations = 300
+
+	tstamp = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+	dir_out = tstamp + "_test_" + tNet.netFileName[9:-8]
 	# Create directories to store results
 	mkdir_n('results/')
 	mkdir_n('results/joint')
-	mkdir_n('results/joint/iterations')
-	mkdir_n('results/joint/graphs')
-	mkdir_n('results/joint/output')
+	mkdir_n('results/joint/' + dir_out)
+	mkdir_n('results/joint/' + dir_out +'/iterations')
+	mkdir_n('results/joint/' + dir_out +'/graphs')
+	mkdir_n('results/joint/' + dir_out +'/output')
+	dir_out = 'results/joint/' + dir_out 
 
-	return G_data, g_data, g_k, fcoeff, tNet, fcoeffs_truth
+	return G_data, g_data, g_k, fcoeff, tNet, fcoeff, c1, d1, to_solve, iterations, dir_out
 
 
 
-def solve_od_fcoffs(G_data, g_data, g_k, fcoeff, tNet, opt_method, iterations):
+def solve_od_fcoffs(G_data, g_data, g_k, fcoeff, tNet, opt_method, iterations, c1, d1):
 	print("--------------------------------------------------------------------------------------")
 	print("| \t n  \t | \t Flow norm \t | \t Demand norm \t | \t fcoeffs \t |")
 	print("--------------------------------------------------------------------------------------")
@@ -55,10 +64,10 @@ def solve_od_fcoffs(G_data, g_data, g_k, fcoeff, tNet, opt_method, iterations):
 			dxdb = tnet.get_dxdb(tNet, delta=0.05, divide=1, log_time=logtime_data)
 		
 		dxdg = msa.get_dxdg(tNet.G, tNet.g, k =1)
-		#print(dxdg)
+
 		# set trust regions
-		g_tr = 150/(((i+1)))#**(1/2))
-		beta_tr = 0.02/((i+1)**(1/2))
+		g_tr = c1/(((i+1)))**(1/2)
+		beta_tr = d1/((i+1)**(1/2))
 		
 		# Optimize:
 		if opt_method == "gd": 
@@ -104,75 +113,68 @@ def solve_od_fcoffs(G_data, g_data, g_k, fcoeff, tNet, opt_method, iterations):
 	return tNet, flowNormList, gNormlist, fcoeff
 
 
-to_solve = ["constant", "GD", "alternating", "Joint"]
-#to_solve = ["GD",  "constant", "alternating"]
-#to_solve = ["GD", "Joint", "constant"]
-#to_solve = ["GD", "constant"]
-#to_solve = ["GD"]
-#to_solve = ["constant"]
-#to_solve = ["Joint"]
-#to_solve = ['alternating']
 
 
-rc('font',**{'family':'Times New Roman', 'size': 16})
-rc('text', usetex=True)
-rc('text', usetex=True)
-mpl.rcParams['text.latex.preamble']=[r"\usepackage{amsmath}"]
-
-iterations = 60
 fcoeffs_list = []
-G_data, g_data, g_0, fcoeffs_0, tNet, fcoeffs_truth = set_up()
+parameters = set_up()
+G_data, g_data, g_0, fcoeff_0, tNet, fcoeffs_0, c1, d1, to_solve, iterations, dir_out = parameters
 x_axis  = [i+1 for i in range(iterations-1)]
 tNet_0 = copy.deepcopy(tNet)
 if "constant" in to_solve:
 	tNet = copy.deepcopy(tNet_0)
-	tNet, flowNormConstant, gNormConstant, fcoeffConstant = solve_od_fcoffs(G_data, g_data, g_0, fcoeffs_0, tNet, "constant", iterations)
+	tNet, flowNormConstant, gNormConstant, fcoeffConstant = solve_od_fcoffs(G_data, g_data, g_0, fcoeffs_0, tNet, "constant", iterations, c1, d1)
 	fcoeffs_list.append(fcoeffConstant)
 	dict2csv(tNet.g, "results/joint/output/"+tNet.netFileName[9:-8]+'_OD_demand'+ '.csv')
 	list2txt(tNet.fcoeffs, "results/joint/output/"+tNet.netFileName[9:-8]+'_costFunct'+ '.txt')
 if "GD" in to_solve:
 	tNet = copy.deepcopy(tNet_0)
-	tNet, flowNormGD, gNormGD, fcoeffGD = solve_od_fcoffs(G_data, g_data, g_0, fcoeffs_0, tNet, "gd", iterations)
+	tNet, flowNormGD, gNormGD, fcoeffGD = solve_od_fcoffs(G_data, g_data, g_0, fcoeffs_0, tNet, "gd", iterations, c1, d1)
 	fcoeffs_list.append(fcoeffGD)
 	dict2csv(tNet.g, "results/joint/output/"+tNet.netFileName[9:-8]+'_OD_demand'+ '.csv')
 	list2txt(tNet.fcoeffs, "results/joint/output/"+tNet.netFileName[9:-8]+'_costFunct'+ '.txt')
 if "alternating" in to_solve:
 	tNet = copy.deepcopy(tNet_0)
-	tNet, flowNormAlternating, gNormAlternating, fcoeffAlternating = solve_od_fcoffs(G_data, g_data, g_0, fcoeffs_0, tNet, "alternating", iterations)
+	tNet, flowNormAlternating, gNormAlternating, fcoeffAlternating = solve_od_fcoffs(G_data, g_data, g_0, fcoeffs_0, tNet, "alternating", iterations, c1, d1)
 	fcoeffs_list.append(fcoeffAlternating)
 	dict2csv(tNet.g, "results/joint/output/"+tNet.netFileName[9:-8]+'_OD_demand'+ '.csv')
 	list2txt(tNet.fcoeffs, "results/joint/output/"+tNet.netFileName[9:-8]+'_costFunct'+ '.txt')
 if "Joint" in to_solve:
 	tNet = copy.deepcopy(tNet_0)
-	tNet, flowNormJOINT, gNormJOINT, fcoeffJOINT = solve_od_fcoffs(G_data, g_data, g_0, fcoeffs_0, tNet, "Joint", iterations)
+	tNet, flowNormJOINT, gNormJOINT, fcoeffJOINT = solve_od_fcoffs(G_data, g_data, g_0, fcoeffs_0, tNet, "Joint", iterations, c1, d1)
 	fcoeffs_list.append(fcoeffJOINT)
 	dict2csv(tNet.g, "results/joint/output/"+tNet.netFileName[9:-8]+'_OD_demand'+ '.csv')
 	list2txt(tNet.fcoeffs, "results/joint/output/"+tNet.netFileName[9:-8]+'_costFunct'+ '.txt')
 
 
 
+# Generate Plots
+
+rc('font',**{'family':'Times New Roman', 'size': 16})
+rc('text', usetex=True)
+rc('text', usetex=True)
+mpl.rcParams['text.latex.preamble']=[r"\usepackage{amsmath}"]
 plt.figure()
 plt.plot(x_axis, flowNormConstant[1:], label='$f(\\cdot) =$ BPR', marker='s', markevery=(0,20))
 plt.plot(x_axis, flowNormGD[1:], label='GD', marker = 'o', markevery=(0,10))
 plt.plot(x_axis, flowNormAlternating[1:], label='Alternating', marker=11, markevery=(0,25))
-plt.plot(x_axis, flowNormJOINT[1:], label='Joint', marker = 'o', markevery=(0,10))
+#plt.plot(x_axis, flowNormJOINT[1:], label='Joint', marker = 'o', markevery=(0,10))
 plt.xlabel("Iteration,$j$")
 plt.ylabel("Flow error, $F(\\mathbf{g}, \\boldsymbol{\\beta})$")
 plt.legend(framealpha=1)
 plt.grid(linestyle='--', linewidth=1)
-plt.savefig('results/joint/graphs/'+tNet.netFileName[9:-8]+'_errorCost_single.png')
+plt.savefig(dir_out +'/graphs/'+tNet.netFileName[9:-8]+'_errorCost_single.png')
 
 
 plt.figure()
 plt.plot(x_axis, gNormConstant[1:], label='$f(\\cdot) =$ BPR', marker='s', markevery=(0,20))
 plt.plot(x_axis, gNormGD[1:], label='GD', marker = 'o', markevery=(0,10))
 plt.plot(x_axis, gNormAlternating[1:], label='Alternating', marker=11, markevery=(0,25))
-plt.plot(x_axis, gNormJOINT[1:], label='Joint', marker = 'o', markevery=(0,10))
+#plt.plot(x_axis, gNormJOINT[1:], label='Joint', marker = 'o', markevery=(0,10))
 plt.xlabel("Iteration,$j$")
 plt.ylabel("Demand error, $||(\\mathbf{g} - \\mathbf{g}^{*})||$")
 plt.legend(framealpha=1)
 plt.grid(linestyle='--', linewidth=1)
-plt.savefig('results/joint/graphs/'+tNet.netFileName[9:-8]+'_errorDemand_single.png')
+plt.savefig(dir_out +'/graphs/'+tNet.netFileName[9:-8]+'_errorDemand_single.png')
 
 
 
@@ -180,10 +182,10 @@ def f_cost(x, fcoe):
 	return sum([fcoe[i]*x**i for i in range(len(fcoe))])
 
 labels = to_solve.copy()
-labels.append('ground truth')
+labels.append('$\\boldsymbol{\\beta}^0$')
 labels[labels.index('constant')] = '$f(\\cdot) =$ BPR'
 markers = ['o', 'D', 's', '^', '*']
-fcoeffs_list.append(fcoeffs_truth)
+fcoeffs_list.append(fcoeffs_0)
 plt.figure()
 x =  np.linspace(0, 1.5, 10, endpoint=True)
 i=0
@@ -197,16 +199,16 @@ plt.xlabel("$x/m$")
 plt.ylabel("Travel time function, $f(x/m)$")
 plt.legend(framealpha=1)
 plt.grid(linestyle='--', linewidth=1)
-plt.savefig('results/joint/graphs/'+tNet.netFileName[9:-8]+'_costFunct.png')
+plt.savefig(dir_out +'/graphs/'+tNet.netFileName[9:-8]+'_costFunct.png')
 
+# Save results to files
 
-
-list2txt(flowNormConstant[1:], "results/joint/iterations/"+tNet.netFileName[9:-8]+'_flowNormConstant.txt')
-list2txt(flowNormGD[1:], "results/joint/iterations/"+tNet.netFileName[9:-8]+'_flowNormGD.txt')
-list2txt(flowNormAlternating[1:], "results/joint/iterations/"+tNet.netFileName[9:-8]+'_flowNormAlternating.txt')
-list2txt(flowNormJOINT[1:], "results/joint/iterations/"+tNet.netFileName[9:-8]+'_flowNormJOINT.txt')
-list2txt(gNormConstant[1:], "results/joint/iterations/"+tNet.netFileName[9:-8]+'_gNormConstant.txt')
-list2txt(gNormGD[1:],"results/joint/iterations/"+tNet.netFileName[9:-8]+'_gNormGD.txt')
-list2txt(gNormAlternating[1:], "results/joint/iterations/"+tNet.netFileName[9:-8]+'_gNormAlternating.txt')
-list2txt(gNormJOINT[1:], "results/joint/iterations/"+tNet.netFileName[9:-8]+'_flowNormJOINT.txt')
-
+list2txt(flowNormConstant[1:], dir_out + "/iterations/"+tNet.netFileName[9:-8]+'_flowNormConstant.txt')
+list2txt(flowNormGD[1:], dir_out +"/iterations/"+tNet.netFileName[9:-8]+'_flowNormGD.txt')
+list2txt(flowNormAlternating[1:], dir_out +"/iterations/"+tNet.netFileName[9:-8]+'_flowNormAlternating.txt')
+list2txt(flowNormJOINT[1:], dir_out +"/iterations/"+tNet.netFileName[9:-8]+'_flowNormJOINT.txt')
+list2txt(gNormConstant[1:], dir_out +"/iterations/"+tNet.netFileName[9:-8]+'_gNormConstant.txt')
+list2txt(gNormGD[1:], dir_out +"/iterations/"+tNet.netFileName[9:-8]+'_gNormGD.txt')
+list2txt(gNormAlternating[1:], dir_out + "/iterations/"+tNet.netFileName[9:-8]+'_gNormAlternating.txt')
+list2txt(gNormJOINT[1:], dir_out +"/iterations/"+tNet.netFileName[9:-8]+'_flowNormJOINT.txt')
+list2txt(parameters, dir_out +"/"+tNet.netFileName[9:-8]+'_parameters.txt')

@@ -269,6 +269,25 @@ def list2txt(list_, fname):
         for listitem in list_:
             filehandle.write('%s\n' % listitem)
 
+
+def txt2list(fname):
+    """
+    writes a text file from a list
+
+    Parameters
+    ----------
+    list_: a python list
+    fname: name of the output file
+
+    Returns
+    -------
+    a text file
+
+    """
+    crimefile = open(fname, 'r')
+    result = [line.split(',') for line in crimefile.readlines()]
+    return result
+
 @decorator
 def timeit(f):
     """

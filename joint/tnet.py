@@ -48,6 +48,7 @@ class tNet():
 		elif g != None and gFile == None:
 			g = g
 
+
 		self.netFileName = netFile
 		self.gFileName = gFile
 		self.nLinks = len(G.edges())
@@ -374,12 +375,20 @@ def gradient_jointBilevel(G, g_k, fcoeffs, dxdb, dxdg, G_data, link_id_dict):
 		if dxdb:
 			dxdg_ = np.array([dxdg[w, ld[i]] for w in sort_od])
 			dxdb_ = np.array([dxdb[j][ld[i]] for j in range(nPoly)])
+		#	print(dxdg_)
+		#	pause
 			DeltaF = np.add(DeltaF, np.array([2*(flow_k[i] - data[i]) * dxdb_ , 2*(flow_k[i] - data[i]) * dxdg_]))
 		else:
 			dxdg_ = np.array([dxdg[w, ld[i]] for w in sort_od])
+		#	print(dxdg_)
+			#print(flow_k[i])
+			#print(data[i])
+		#	print((flow_k[i] - data[i]) * dxdg_)
 			DeltaF = np.add(DeltaF, np.array([[0 for i in range(nPoly)] , 2*(flow_k[i] - data[i]) * dxdg_]));
 
 	Delta_g = {sort_od[i]: DeltaF[1][i]  for i in range(len(DeltaF[1]))}
+	#print(Delta_g)
+	#pause
 	Delta_fcoeffs = DeltaF[0]		
 	return Delta_g, Delta_fcoeffs
 
@@ -668,7 +677,7 @@ def perturbDemandConstant(g, max_var):
 
     """
 	for od,demand in g.items():
-		g[od] = 1#max(0, demand+ demand*max_var*np.random.uniform(-1,1))
+		g[od] = 1# max(0, demand+ demand*max_var*np.random.uniform(-1,1))
 	return g
 
 def normFlowDiff(G_data, G_estimate):
@@ -1162,19 +1171,19 @@ def read_flowFile(fname, G=False):
 		if "Tail" not in line and ";" in line:
 			line_ = line.split("\t")
 			i=0
-		for j in line_:
-			if i == 1:
-				s = int(j)
-			elif i == 2:
-				t = int(j)
-			elif i == 3:
-				flow = float(j)
-			i += 1
-		if G==False:
-			G.add_edge(s,t)
-			G[s][t]['flow'] = flow
-		else:
-			G[s][t]['flow'] = flow
+			for j in line_:
+				if i == 1:
+					s = int(j)
+				elif i == 2:
+					t = int(j)
+				elif i == 3:
+					flow = float(j)
+				i += 1
+			if G==False:
+				G.add_edge(s,t)
+				G[s][t]['flow'] = flow
+			else:
+				G[s][t]['flow'] = flow
 	return G
 
 
