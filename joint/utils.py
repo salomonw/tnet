@@ -99,7 +99,6 @@ def mkdir_n(dirName):
 	if os.path.isdir(dirName) == False:
 		os.mkdir(dirName)
 
-
 def csv2dict(fname):
 	"""
     read a csv file to a dict when keys and values are
@@ -121,7 +120,6 @@ def csv2dict(fname):
 		d[k] = v
 	return d
 
-
 def dict2csv(dict_, fname):
     """
     writes a csv file from a directory with comma separated
@@ -140,7 +138,6 @@ def dict2csv(dict_, fname):
     w = csv.writer(open(fname, "w"))
     for key, val in dict_.items():
         w.writerow([key, val])
-
 
 def e_vect(n, i):
     """
@@ -177,7 +174,6 @@ def dict2json(dict_, fname):
     with open(fname, 'w') as fp:
         json.dump(dict_, fp)
 
-
 def shell(command, printOut=True):
     """
     Run shell commands in Linux, decide if printing or not the output in console
@@ -198,7 +194,6 @@ def shell(command, printOut=True):
     else:
         proc = subprocess.Popen(command, shell=True)
         proc.wait(timeout=None)
-
 
 def write_file(string, fname):
     """
@@ -234,7 +229,6 @@ def read_vector(fname, delimiter):
     """
     x = np.loadtxt(fname, delimiter=delimiter)
 
-
 def decorator(d):
     """
     Make function d a decorator: d wraps a function fn.
@@ -248,8 +242,6 @@ def decorator(d):
         return update_wrapper(d(fn), fn)
     update_wrapper(_d, d)
     return _d
-
-
 
 def list2txt(list_, fname):
     """
@@ -268,7 +260,6 @@ def list2txt(list_, fname):
     with open(fname, 'w') as filehandle:
         for listitem in list_:
             filehandle.write('%s\n' % listitem)
-
 
 def txt2list(fname):
     """

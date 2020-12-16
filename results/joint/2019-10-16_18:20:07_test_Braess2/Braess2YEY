@@ -1,0 +1,12 @@
+
+{(1, 2): 4000.0, (2, 1): 1.0}
+{(1, 2): 1, (2, 1): 1}
+[1, 0, 0, 0, 0.15, 0]
+<joint.tnet.tNet object at 0x7f1e89ad4128>
+100
+0.02
+[1, 0, 0, 0, 0.45, 0]
+['constant', 'GD', 'alternating', 'Joint']
+300
+results/joint/2019-10-16_18:20:07_test_Braess2
+True

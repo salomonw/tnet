@@ -15,15 +15,17 @@ def set_up():
 	netFile ="networks/NYC_net.txt"
 	gFile = "networks/NYC_trips.txt"
 	# Build a ground truth network
-	fcoeffs_truth = [1,0,0,0,0.35,0]
+	fcoeffs_truth = [1,0,0,0,0.45,0]
 	tNet = tnet.tNet(netFile=netFile, gFile=gFile, fcoeffs=fcoeffs_truth)
 	
 	tNet = tnet.solveMSA_julia(tNet, tNet.fcoeffs)
+	
+
 	G_data = tNet.G.copy()
 	g_data = tNet.g.copy()
 
-	c1 = 100
-	d1 = 0.005
+	c1 = 150
+	d1 = 0.02
 
 	# Now, use the data to try to estimate demands, to do so 
 	# let us perturb the truth demands. 
@@ -31,7 +33,7 @@ def set_up():
 	fcoeff = [1,0,0,0,0.15,0]
 
 	to_solve = ["constant", "GD", "alternating", "Joint"]
-	iterations = 10
+	iterations = 30				
 
 	tstamp = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 	dir_out = tstamp + "_test_" + tNet.netFileName[9:-8]
@@ -122,6 +124,7 @@ def solve_od_fcoffs(G_data, g_data, g_k, fcoeff, tNet, opt_method, iterations, c
 fcoeffs_list = []
 parameters = set_up()
 [G_data, g_data, g_0, fcoeffs_0, tNet, c1, d1, fcoeffs_truth, to_solve, iterations, dir_out, generate_plots] = parameters
+tNet.write_flow_file(dir_out +"/"+tNet.netFileName[9:-8]+'_initial_flow_j.txt')
 x_axis  = [i+1 for i in range(iterations-1)]
 tNet_0 = copy.deepcopy(tNet)
 if "constant" in to_solve:

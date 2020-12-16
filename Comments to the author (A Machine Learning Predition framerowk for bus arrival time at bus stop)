@@ -1,0 +1,43 @@
+Comments to the author
+======================
+
+- The paper presents a method for estimating the arrival time 
+of a bus to it's next bus station. In order to estimate such 
+value the authors present a Machine Learning Method (FNNRW) which
+uses as inputs historical speed profiles of the target bus and 
+the arrival time of the last preceding bus to the target station.
+The paper presents a real case using 6-days of data for a university
+bus in NTU, Singapore.  
+In general, the article is difficult to follow and contains many
+english mistakes.  Additonaly, it does not provide a benchmark or
+an argument to state why this methodology is better than the 
+state-of-the-art.
+
+- MAJOR COMMENTS
+-- The article motivates the idea of estimating bus arrival times by 
+considering congested and dynamic networks. Most of the literature, 
+deals with this issue by using the available real-time information 
+of the traffic conditions. This helps the predictor to adjust for 
+outliers and new dynamics in the network. The approach used in this
+paper does not uses this information. It uses historical data exclusively.
+The limitation relies that the authors does not provide any evidence, 
+argument or discussion on comparying their method to any other. Hence
+it is impossible to evaluate if this methodology performs better than 
+others. 
+-- Since there is no benchmark, there is no intuition if the estimated
+errors are good or bad. Additionaly, the axis of the plots as timestamps
+do not give the reader a fully understanding of their meaning. Please provide
+better explainantion and notation on the graphs. 
+-- Equation 6 should be a weighted average, should't be divided by 3 
+
+
+- MINOR COMMENTS
+-- The sybol L is used for two different purposes: hidden neurons 
+and the route set.
+-- Improve english on the first paragraph of the II. Methodology
+section. The research question is not clear. 
+-- In fig.2 the output goes up to M not to m
+-- Improve english in II.A first bullet
+-- Bad notation $T(L,a,i)^k$ should be $T_{(L,a,i)}^k$ in line 5 and
+12 on page 5
+
