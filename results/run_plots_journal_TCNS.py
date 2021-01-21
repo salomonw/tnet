@@ -1,11 +1,15 @@
 import pandas as pd
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
+
+matplotlib.rc('text', usetex=True)
+matplotlib.rcParams['text.latex.preamble']=[r"\usepackage{amsmath}"]
 
 plt.style.use(['science', 'ieee', 'high-vis'])
 plt.rcParams.update({
     "font.family": "serif",   # specify font family here
-    "font.serif": ["Times"],  # specify font here
+ #   "font.serif": ["Times"],  # specify font here
    # "font.size":6,			  # specify font size here
    # "axes.linewidth":0.4,
 #	'xtick.major.width' : 0.4,
@@ -55,7 +59,7 @@ def plot_f():
 	plt.savefig(dir_out +'/graphs/'+tNet.netFileName[9:-8]+'_costFunct.png')
 
 def read_files(net):
-	dir_out = 'joint/'+net
+	dir_out = 'joint/' + net
 	fn = dir_out + "/iterations/"+net.split('_')[0]
 	flowNormConstant=txt2list( fn+'_flowNormConstant.txt')
 	flowNormGD=txt2list( fn+'_flowNormGD.txt')
@@ -72,6 +76,7 @@ def read_files(net):
 def plotVecs(ax, constant, gd, alternating, joint):
 	x_axis  = [i for i in range(len(constant))]	
 	lw=1
+	#joint = [i*3 for i in joint]
 	ax.plot(x_axis, constant, label='$f(\\cdot) =$ BPR', linestyle='-', linewidth=lw)
 	ax.plot(x_axis, gd, label='GD', linestyle='-', linewidth=lw)
 	ax.plot(x_axis, alternating, label='Alternating', linestyle='--', linewidth=lw)
@@ -84,12 +89,14 @@ def plotFlowsGdiff(netname):
 	flowNormAlternating, flowNormJOINT, \
 	gNormConstant, gNormGD, \
 	gNormAlternating, gNormJOINT = read_files(netname)
-
+	
 	# Plot Flow Norm
 	fig, ax = plt.subplots(1,2, figsize=(4.5,2)) # sharex=True)
 	plotVecs(ax[0], flowNormConstant, flowNormGD, flowNormAlternating, flowNormJOINT)
 	ax[0].set_ylabel("$F(\\mathbf{g}, \\boldsymbol{\\beta})$")
 	ax[0].set_xlabel("Iteration, $j$")
+	#ax[0].set_ylim([-.05e7,1e7])
+	ax[0].set_xlim([0,40])
 	plt.tight_layout()
 
 	# Plot gNorm
@@ -97,10 +104,21 @@ def plotFlowsGdiff(netname):
 	ax[1].set_xlabel("Iteration, $j$")
 	ax[1].set_ylabel("$||(\\mathbf{g} - \\mathbf{g}^{*})||$")
 	ax[1].legend(frameon=True, framealpha=0.8)
+	#ax[1].set_ylim([-.05e7,1e7])
+	ax[1].set_xlim([0,40])
 	plt.tight_layout()
 	plt.savefig(netname+'_norms.pdf')
 
+
+def plotMulitClass(netname='Braess2_final'):
+	fig, ax = plt.subplots(3,2, figsize=(4.5,7.5))
+	plt.savefig(netname+'multi.pdf')
+
 # Save results to files
-for net in ['Braess2_final', 'NYC_final']	:#,'EMA','NYC']:
+
+#plotMulitClass()
+#'EMA_2019-10-13_01-12-51_test_EMA'
+for net in ['EMA_validation']:#, 'Braess2','Braess3' , 'NYC', 'EMA']	:#,'EMA','NYC']:
 	plotFlowsGdiff(net)
+	
 

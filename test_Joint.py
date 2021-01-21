@@ -12,8 +12,8 @@ from datetime import datetime
  
 
 def set_up():
-	netFile ="networks/NYC_net.txt"
-	gFile = "networks/NYC_trips.txt"
+	netFile ="networks/EMA_net.txt"
+	gFile = "networks/EMA_trips.txt"
 	# Build a ground truth network
 	fcoeffs_truth = [1,0,0,0,0.45,0]
 	tNet = tnet.tNet(netFile=netFile, gFile=gFile, fcoeffs=fcoeffs_truth)
@@ -164,7 +164,7 @@ list2txt(flowNormJOINT, dir_out +"/iterations/"+tNet.netFileName[9:-8]+'_flowNor
 list2txt(gNormConstant, dir_out +"/iterations/"+tNet.netFileName[9:-8]+'_gNormConstant.txt')
 list2txt(gNormGD, dir_out +"/iterations/"+tNet.netFileName[9:-8]+'_gNormGD.txt')
 list2txt(gNormAlternating, dir_out + "/iterations/"+tNet.netFileName[9:-8]+'_gNormAlternating.txt')
-list2txt(gNormJOINT, dir_out +"/iterations/"+tNet.netFileName[9:-8]+'_flowNormJOINT.txt')
+list2txt(gNormJOINT, dir_out +"/iterations/"+tNet.netFileName[9:-8]+'_gNormJOINT.txt')
 list2txt(parameters, dir_out +"/"+tNet.netFileName[9:-8]+'_parameters.txt')
 
 
