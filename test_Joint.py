@@ -15,7 +15,7 @@ def set_up():
 	netFile ="networks/EMA_net.txt"
 	gFile = "networks/EMA_trips.txt"
 	# Build a ground truth network
-	fcoeffs_truth = [1,0,0,0,0.45,0]
+	fcoeffs_truth = [1,0,0,0,0.35,0]
 	tNet = tnet.tNet(netFile=netFile, gFile=gFile, fcoeffs=fcoeffs_truth)
 	
 	tNet = tnet.solveMSA_julia(tNet, tNet.fcoeffs)
@@ -70,13 +70,13 @@ def solve_od_fcoffs(G_data, g_data, g_k, fcoeff, tNet, opt_method, iterations, c
 		if opt_method=='constant':
 			dxdb = False
 		else:
-			dxdb = tnet.get_dxdb(tNet, delta=0.05, divide=1, log_time=logtime_data)
+			dxdb = tnet.get_dxdb(tNet, delta=0.1, divide=1, log_time=logtime_data)
 		
 		dxdg = msa.get_dxdg(tNet.G, tNet.g, k =1)
 
 		# set trust regions
-		g_tr = c1/(((i+1)))**(1/2)
-		beta_tr = d1/((i+1))**(3/4)
+		g_tr = c1/(((i+1)))#**(1/2)
+		beta_tr = d1/((i+1))**(1/2)
 		
 		# Optimize:
 		if opt_method == "gd": 
@@ -86,7 +86,7 @@ def solve_od_fcoffs(G_data, g_data, g_k, fcoeff, tNet, opt_method, iterations, c
 			fcoeff = [max(min(max(fcoeff[n] - Delta_fcoeffs[n], fcoeff[n]-beta_tr), fcoeff[n]+beta_tr),0) for n in range(tNet.nPoly)]
 		if opt_method == "Joint":
 		# solve joint bilevel
-			g_k, fcoeff = tNet.solve_jointBilevel(G_data, dxdb, dxdg, g_tr = g_tr, beta_tr = beta_tr, scaling=1e2, c=30, lambda_1=0.0)
+			g_k, fcoeff = tNet.solve_jointBilevel(G_data, dxdb, dxdg, g_tr = g_tr, beta_tr = beta_tr, scaling=1e10, c=30, lambda_1=0.0)
 		if opt_method == "constant":
 			dxdb = False
 			Delta_g, Delta_fcoeffs = tNet.get_gradient_jointBilevel(G_data, dxdb=dxdb, dxdg=dxdg)
