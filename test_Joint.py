@@ -24,7 +24,7 @@ def set_up():
 	G_data = tNet.G.copy()
 	g_data = tNet.g.copy()
 
-	c1 = 150
+	c1 = 100
 	d1 = 0.01
 
 	# Now, use the data to try to estimate demands, to do so 
@@ -75,8 +75,8 @@ def solve_od_fcoffs(G_data, g_data, g_k, fcoeff, tNet, opt_method, iterations, c
 		dxdg = msa.get_dxdg(tNet.G, tNet.g, k =1)
 
 		# set trust regions
-		g_tr = c1/(((i+1)))**(1/2)
-		beta_tr = d1/((i+1))**(3/4)
+		g_tr = c1/(((i+1)))#**(1/2)
+		beta_tr = d1/((i+1))**(1/2)
 		
 		# Optimize:
 		if opt_method == "gd": 
