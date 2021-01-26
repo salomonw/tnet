@@ -20,26 +20,19 @@ def set_up():
 	
 	tNet = tnet.solveMSA_julia(tNet, tNet.fcoeffs)
 	
-
 	G_data = tNet.G.copy()
 	g_data = tNet.g.copy()
-
 	c1 = 100
 	d1 = 0.01
-
 	# Now, use the data to try to estimate demands, to do so 
 	# let us perturb the truth demands. 
 	g_k = tnet.perturbDemandConstant(tNet.g, max_var=0.1)
 	fcoeff = [1,0,0,0,0.15,0]
-
 	to_solve = ["constant", "GD", "alternating", "Joint"]
 	iterations = 30				
-
 	tstamp = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 	dir_out = tstamp + "_test_" + tNet.netFileName[9:-8]
-
 	generate_plots = True
-
 	# Create directories to store results
 	mkdir_n('results/')
 	mkdir_n('results/joint')
@@ -48,7 +41,6 @@ def set_up():
 	mkdir_n('results/joint/' + dir_out +'/graphs')
 	mkdir_n('results/joint/' + dir_out +'/output')
 	dir_out = 'results/joint/' + dir_out 
-
 	return [G_data, g_data, g_k, fcoeff, tNet, c1, d1, fcoeffs_truth, to_solve, iterations, dir_out, generate_plots]
 
 
