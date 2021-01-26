@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "test_Joint.py", line 125, in <module>
+    parameters = set_up()
+  File "test_Joint.py", line 46, in set_up
+    mkdir_n('results/joint/' + dir_out)
+  File "/usr3/graduate/salomonw/Github/tnet/joint/utils.py", line 100, in mkdir_n
+    os.mkdir(dirName)
+FileExistsError: [Errno 17] File exists: 'results/joint/2021-01-25_18:31:36_test_EMA'
