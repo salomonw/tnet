@@ -1,0 +1,13 @@
+import: unable to open X server `' @ error/import.c/ImportImageCommand/344.
+/var/spool/sge/scc-bc7/job_scripts/2534139: line 2: from: command not found
+import: unable to open X server `' @ error/import.c/ImportImageCommand/344.
+import: unable to open X server `' @ error/import.c/ImportImageCommand/344.
+import: unable to open X server `' @ error/import.c/ImportImageCommand/344.
+import: unable to open X server `' @ error/import.c/ImportImageCommand/344.
+import: unable to open X server `' @ error/import.c/ImportImageCommand/344.
+/var/spool/sge/scc-bc7/job_scripts/2534139: line 8: from: command not found
+/var/spool/sge/scc-bc7/job_scripts/2534139: line 9: from: command not found
+import: unable to open X server `' @ error/import.c/ImportImageCommand/344.
+/var/spool/sge/scc-bc7/job_scripts/2534139: line 11: from: command not found
+/var/spool/sge/scc-bc7/job_scripts/2534139: line 14: syntax error near unexpected token `('
+/var/spool/sge/scc-bc7/job_scripts/2534139: line 14: `def set_up():'
