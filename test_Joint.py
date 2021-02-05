@@ -33,7 +33,7 @@ def set_up():
 	fcoeff = [1,0,0,0,0.15,0]
 
 	to_solve = ["constant", "GD", "alternating", "Joint"]
-	iterations = 30				
+	iterations = 60				
 
 	tstamp = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 	dir_out = tstamp + "_test_" + tNet.netFileName[9:-8]
@@ -70,7 +70,7 @@ def solve_od_fcoffs(G_data, g_data, g_k, fcoeff, tNet, opt_method, iterations, c
 		if opt_method=='constant':
 			dxdb = False
 		else:
-			dxdb = tnet.get_dxdb(tNet, delta=0.05, divide=1, log_time=logtime_data)
+			dxdb = tnet.get_dxdb(tNet, delta=0.1, divide=1, log_time=logtime_data)
 		
 		dxdg = msa.get_dxdg(tNet.G, tNet.g, k =1)
 

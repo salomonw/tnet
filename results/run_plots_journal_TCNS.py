@@ -68,7 +68,7 @@ def read_files(net):
 	gNormConstant=txt2list( fn+'_gNormConstant.txt')
 	gNormGD=txt2list( fn+'_gNormGD.txt')
 	gNormAlternating=txt2list( fn+'_gNormAlternating.txt')
-	gNormJOINT=txt2list( fn+'_flowNormJOINT.txt')
+	gNormJOINT=txt2list( fn+'_gNormJOINT.txt')
 	#fcoeffs = txt2list( dir_out +'/output/'+net+'_costFunct')
 	return flowNormConstant, flowNormGD, flowNormAlternating, flowNormJOINT, gNormConstant, gNormGD, gNormAlternating, gNormJOINT
 
@@ -77,10 +77,10 @@ def plotVecs(ax, constant, gd, alternating, joint):
 	x_axis  = [i for i in range(len(constant))]	
 	lw=1
 	#joint = [i*3 for i in joint]
-	ax.plot(x_axis, constant, label='$f(\\cdot) =$ BPR', linestyle='-', linewidth=lw)
-	ax.plot(x_axis, gd, label='GD', linestyle='-', linewidth=lw)
+	ax.plot(x_axis, constant, label='$f(\\cdot) =$ BPR', linestyle='--', linewidth=lw)
+	ax.plot(x_axis, gd, label='GD', linestyle='--', linewidth=lw)
 	ax.plot(x_axis, alternating, label='Alternating', linestyle='--', linewidth=lw)
-	ax.plot(x_axis, joint, label='Joint', linestyle='-.', linewidth=lw)
+	ax.plot(x_axis, joint, label='Joint', linestyle='-', linewidth=lw)
 
 
 def plotFlowsGdiff(netname):
@@ -96,7 +96,7 @@ def plotFlowsGdiff(netname):
 	ax[0].set_ylabel("$F(\\mathbf{g}, \\boldsymbol{\\beta})$")
 	ax[0].set_xlabel("Iteration, $j$")
 	#ax[0].set_ylim([-.05e7,1e7])
-	ax[0].set_xlim([0,40])
+	ax[0].set_xlim([0,30])
 	plt.tight_layout()
 
 	# Plot gNorm
@@ -105,7 +105,7 @@ def plotFlowsGdiff(netname):
 	ax[1].set_ylabel("$||(\\mathbf{g} - \\mathbf{g}^{*})||$")
 	ax[1].legend(frameon=True, framealpha=0.8)
 	#ax[1].set_ylim([-.05e7,1e7])
-	ax[1].set_xlim([0,40])
+	ax[1].set_xlim([0,30])
 	plt.tight_layout()
 	plt.savefig(netname+'_norms.pdf')
 
@@ -118,7 +118,7 @@ def plotMulitClass(netname='Braess2_final'):
 
 #plotMulitClass()
 #'EMA_2019-10-13_01-12-51_test_EMA'
-for net in ['EMA_validation']:#, 'Braess2','Braess3' , 'NYC', 'EMA']	:#,'EMA','NYC']:
+for net in ['EMA_single_final', 'NYC_final']:#, 'Braess2_final', 'Braess2','Braess3' , 'NYC', 'EMA']	:#,'EMA','NYC']:
 	plotFlowsGdiff(net)
 	
 
